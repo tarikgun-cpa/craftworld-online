@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CraftWorld: Köy Kurma & 25 HD Araç Filosu</title>
+    <title>CraftWorld: Uras Planet</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Firebase SDK (Realtime Database) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
         * {
@@ -172,6 +175,9 @@
                 </button>
                 <button onclick="toggleSaveWorldModal()" class="ergo-btn bg-emerald-600/90 text-white font-bold py-1 px-2 rounded-xl border border-emerald-400 text-[11px] flex items-center gap-1">
                     <i class="fas fa-save"></i> Kaydet/Işınlan
+                </button>
+                <button onclick="openMultiplayerModal()" class="ergo-btn bg-cyan-600/95 text-white font-black py-1 px-2.5 rounded-xl border border-cyan-300 shadow text-[11px] flex items-center gap-1">
+                <i class="fas fa-users"></i> Online Oda (<span id="online-count">1</span>)
                 </button>
 
                 <!-- Inline Compact Color Picker -->
@@ -367,11 +373,36 @@
             </div>
 
             <div class="space-y-2 pt-2 border-t border-slate-800">
-                <div class="text-xs font-bold text-slate-400 uppercase">Köyünü ve Araçlarını Kaydet</div>
+                <div class="text-xs font-bold text-slate-400 uppercase">Yerel veya Firebase Bulut Kayıt</div>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="saveWorldToStorage()" class="ergo-btn bg-emerald-600 hover:bg-emerald-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">💾 Tarayıcıya Kaydet</button>
-                    <button onclick="loadWorldFromStorage()" class="ergo-btn bg-sky-600 hover:bg-sky-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">📂 Kaydı Yükle</button>
+                    <button onclick="saveWorldToStorage()" class="ergo-btn bg-emerald-600 hover:bg-emerald-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">💾 Cihaza Kaydet</button>
+                    <button onclick="loadWorldFromStorage()" class="ergo-btn bg-sky-600 hover:bg-sky-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">📂 Cihazdan Yükle</button>
+                    <button onclick="saveWorldToFirebaseCloud()" class="ergo-btn bg-cyan-600 hover:bg-cyan-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">☁️ Buluta Kaydet</button>
+                    <button onclick="loadWorldFromFirebaseCloud()" class="ergo-btn bg-indigo-600 hover:bg-indigo-500 p-3 rounded-xl text-xs font-extrabold text-white shadow-lg">🌩️ Buluttan Yükle</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 7: ONLINE MULTIPLAYER ROOM & NICKNAME -->
+    <div id="multiplayer-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl border border-cyan-400/50 shadow-2xl p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h2 class="text-lg font-black text-cyan-400 flex items-center gap-2"><i class="fas fa-users"></i> ONLİNE ODA & OYUNCU AYARI</h2>
+                <button onclick="openMultiplayerModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-white font-bold">✕</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">Oyuncu Adınız (Bulut Kayıt Anahtarınız):</label>
+                    <input id="mp-nickname-input" type="text" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm text-white font-bold" placeholder="Örn: Uras">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">Ortak Oda Adı (Arkadaşınızla aynı odayı yazın):</label>
+                    <input id="mp-room-input" type="text" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm text-cyan-300 font-bold" placeholder="ortak_sehir_1">
+                </div>
+                <button onclick="applyMultiplayerSettings()" class="ergo-btn w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black py-3 rounded-2xl shadow-lg text-sm">
+                    🌐 ODAYA BAĞLAN & KAYDET
+                </button>
             </div>
         </div>
     </div>
@@ -2669,7 +2700,9 @@
         // ====================================================
         // PLACEMENT, PREFAB VILLAGE BUILDER & INTERACTION
         // ====================================================
-        function placeSingleBlock(itemId, gx, gy, gz, rot = 0, customColor = null, replaceExisting = false) {
+        let isGeneratingStarterWorld = true; // Başlangıç şehri kurulurken Firebase'e göndermeyi engeller
+
+        function placeSingleBlock(itemId, gx, gy, gz, rot = 0, customColor = null, replaceExisting = false, fromNetwork = false) {
             if (replaceExisting) {
                 for (let i = placedStructures.length - 1; i >= 0; i--) {
                     const s = placedStructures[i];
@@ -2691,6 +2724,19 @@
                 rotation: rot,
                 colorHex: colToUse
             });
+
+            // Sadece oyuncu kendi eliyle koyduğunda (başlangıç şehri değilse ve ağdan gelmediyse) Firebase'e gönder
+            if (db && !isGeneratingStarterWorld && !fromNetwork) {
+                db.ref(`rooms/${currentRoom}/sharedStructures`).push({
+                    author: myPlayerId,
+                    type: itemId,
+                    x: gx,
+                    y: gy,
+                    z: gz,
+                    rot: rot,
+                    colorHex: colToUse || null
+                });
+            }
         }
 
         function buildRoomPerimeter(cx, cz, floorY, minX, maxX, minZ, maxZ, wallType, wallColor, doorX = 0, doorZ = 1) {
@@ -4965,8 +5011,211 @@
             showToast('🏙️ Şehir, Liman ve 25 Araç Hazır! [H] ile çalışın, gemilere iskeleden binin!', 'text-emerald-300');
         }
 
+        // ====================================================
+// ====================================================
+        // FIREBASE CLOUD SAVE & ONLINE MULTIPLAYER MODULE
+        // ====================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDk9nCKAnEzGIXNass7FKOwN2uUaqIs9Dw",
+            authDomain: "craftworld-a464a.firebaseapp.com",
+            databaseURL: "https://craftworld-a464a-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "craftworld-a464a",
+            storageBucket: "craftworld-a464a.firebasestorage.app",
+            messagingSenderId: "97990611316",
+            appId: "1:97990611316:web:934de6ce6f46de4afddc21"
+        };
+
+        let db = null;
+        let myPlayerId = 'p_' + Math.random().toString(36).substring(2, 9);
+        let myNickname = localStorage.getItem('cw_nick') || ('Oyuncu_' + Math.floor(Math.random() * 900 + 100));
+        let currentRoom = localStorage.getItem('cw_room') || 'ortak_sehir_1';
+        const remotePlayers = {};
+        let mpIntervalsStarted = false;
+
+        function openMultiplayerModal() {
+            const m = document.getElementById('multiplayer-modal');
+            if (!m) return;
+            const show = m.classList.contains('hidden');
+            if (show) {
+                document.getElementById('mp-nickname-input').value = myNickname;
+                document.getElementById('mp-room-input').value = currentRoom;
+            }
+            m.classList.toggle('hidden', !show);
+        }
+
+        function applyMultiplayerSettings() {
+            const nickVal = document.getElementById('mp-nickname-input').value.trim();
+            const roomVal = document.getElementById('mp-room-input').value.trim();
+            if (nickVal) {
+                myNickname = nickVal.replace(/[.#$\[\]]/g, '_');
+                localStorage.setItem('cw_nick', myNickname);
+            }
+            if (roomVal) {
+                currentRoom = roomVal.replace(/[.#$\[\]]/g, '_');
+                localStorage.setItem('cw_room', currentRoom);
+            }
+            openMultiplayerModal();
+            showToast(`🌐 Oda: "${currentRoom}" | Oyuncu: "${myNickname}" olarak güncellendi!`, 'text-cyan-300');
+            connectToFirebaseRoom();
+        }
+
+        function initFirebaseMultiplayer() {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.database();
+                connectToFirebaseRoom();
+
+                if (!mpIntervalsStarted) {
+                    mpIntervalsStarted = true;
+                    // Kendi konumumuzu saniyede 10 kez Firebase'e gönder
+                    setInterval(() => {
+                        if (!db) return;
+                        const activePos = state.inVehicle ? state.inVehicle.pos : player.pos;
+                        const activeAngle = state.inVehicle ? state.inVehicle.angle : player.angle;
+                        db.ref(`rooms/${currentRoom}/players/${myPlayerId}`).set({
+                            name: myNickname,
+                            x: Number(activePos.x.toFixed(2)),
+                            y: Number(activePos.y.toFixed(2)),
+                            z: Number(activePos.z.toFixed(2)),
+                            angle: Number(activeAngle.toFixed(2)),
+                            inVehicle: state.inVehicle ? state.inVehicle.id : null,
+                            updatedAt: firebase.database.ServerValue.TIMESTAMP
+                        });
+                    }, 100);
+
+                    // Arkadaşların karakterlerini yumuşakça hareket ettir
+                    setInterval(() => {
+                        Object.values(remotePlayers).forEach(rp => {
+                            rp.mesh.position.lerp(rp.targetPos, 0.25);
+                            rp.mesh.rotation.y = rp.angle;
+                        });
+                    }, 16);
+                }
+            } catch (err) {
+                console.error("Firebase başlatma hatası:", err);
+            }
+        }
+
+        function connectToFirebaseRoom() {
+            if (!db) return;
+            const roomRef = db.ref(`rooms/${currentRoom}`);
+            const myRef = roomRef.child(`players/${myPlayerId}`);
+            myRef.onDisconnect().remove();
+
+            // A) Odadaki diğer oyuncuları dinle
+            roomRef.child('players').off();
+            roomRef.child('players').on('value', snapshot => {
+                const allPlayers = snapshot.val() || {};
+                const activeIds = Object.keys(allPlayers);
+                const countEl = document.getElementById('online-count');
+                if (countEl) countEl.innerText = Math.max(1, activeIds.length);
+
+                Object.keys(remotePlayers).forEach(pid => {
+                    if (!allPlayers[pid]) {
+                        scene.remove(remotePlayers[pid].mesh);
+                        delete remotePlayers[pid];
+                    }
+                });
+
+                activeIds.forEach(pid => {
+                    if (pid === myPlayerId) return;
+                    const pData = allPlayers[pid];
+                    if (!remotePlayers[pid]) {
+                        const mesh = createHumanMesh(0x10b981, 0x1e293b);
+                        scene.add(mesh);
+                        remotePlayers[pid] = {
+                            mesh,
+                            targetPos: new THREE.Vector3(pData.x || 0, pData.y || 0, pData.z || 12),
+                            angle: pData.angle || 0
+                        };
+                        showToast(`👋 ${pData.name || 'Arkadaşınız'} odaya katıldı!`, 'text-emerald-300');
+                    } else {
+                        remotePlayers[pid].targetPos.set(pData.x || 0, pData.y || 0, pData.z || 12);
+                        remotePlayers[pid].angle = pData.angle || 0;
+                    }
+                });
+            });
+
+            // B) Ortak inşaat bloklarını dinle (fromNetwork = true ile sonsuz döngüyü önle!)
+            roomRef.child('sharedStructures').off();
+            roomRef.child('sharedStructures').on('child_added', snap => {
+                const st = snap.val();
+                if (!st || st.author === myPlayerId) return;
+                const alreadyExists = placedStructures.some(s =>
+                    Math.abs(s.pos.x - st.x) < 0.3 &&
+                    Math.abs(s.pos.y - st.y) < 0.3 &&
+                    Math.abs(s.pos.z - st.z) < 0.3 &&
+                    s.type === st.type
+                );
+                if (!alreadyExists) {
+                    placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true);
+                }
+            });
+        }
+
+        function saveWorldToFirebaseCloud() {
+            if (!db) {
+                showToast('⚠️ Firebase bağlantısı kurulamadı!', 'text-rose-400');
+                return;
+            }
+            const data = {
+                money: state.money,
+                resources: state.resources,
+                ownedWeapons: state.ownedWeapons,
+                equippedWeapon: state.equippedWeapon,
+                structures: placedStructures.map(s => ({
+                    type: s.type,
+                    x: s.pos.x,
+                    y: s.pos.y,
+                    z: s.pos.z,
+                    rot: s.rotation,
+                    colorHex: s.colorHex || null
+                }))
+            };
+            db.ref(`cloudSaves/${myNickname}`).set(data).then(() => {
+                toggleSaveWorldModal();
+                showToast(`☁️ Şehir ve Paranız Buluta (${myNickname}) Kaydedildi!`, 'text-emerald-300');
+            }).catch(err => {
+                showToast('⚠️ Bulut kayıt hatası: ' + err.message, 'text-rose-400');
+            });
+        }
+
+        function loadWorldFromFirebaseCloud() {
+            if (!db) return;
+            db.ref(`cloudSaves/${myNickname}`).once('value').then(snap => {
+                const data = snap.val();
+                if (!data) {
+                    showToast(`⚠️ "${myNickname}" adına kayıtlı bulut verisi bulunamadı!`, 'text-rose-400');
+                    return;
+                }
+                state.money = data.money || 0;
+                if (data.resources) state.resources = data.resources;
+                if (data.ownedWeapons) state.ownedWeapons = data.ownedWeapons;
+                if (data.equippedWeapon) {
+                    state.equippedWeapon = data.equippedWeapon;
+                    if (player.mesh.userData.gunMesh) player.mesh.userData.gunMesh.visible = true;
+                }
+                if (data.structures) {
+                    while (placedStructures.length > 0) {
+                        const s = placedStructures.pop();
+                        scene.remove(s.mesh);
+                    }
+                    data.structures.forEach(st => {
+                        placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true);
+                    });
+                }
+                updateHUD();
+                toggleSaveWorldModal();
+                showToast(`☁️ "${myNickname}" bulut kaydı başarıyla yüklendi!`, 'text-sky-300');
+            });
+        }
+
         window.onload = function () {
             initStarterWorld();
+            isGeneratingStarterWorld = false; // Başlangıç şehri bitti, artık yapılan inşaatlar Firebase'e gidebilir!
+            initFirebaseMultiplayer();
             animate();
         };
     </script>
