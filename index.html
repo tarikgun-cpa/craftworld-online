@@ -735,7 +735,13 @@
                 }
             }
 
-            // 5. Rolling Hills & Northern/Western Mountains
+            // 5. Central URASWORLD Landmark Hill (Directly overlooking the city at X=45, Z=-150)
+            const dUrasHill = Math.hypot((x - 45) * 0.65, z - (-150));
+            if (dUrasHill < 62) {
+                return Math.pow(Math.cos((dUrasHill / 62) * (Math.PI / 2)), 1.4) * 32;
+            }
+
+            // 6. Rolling Hills & Northern/Western Mountains
             const distCenter = Math.hypot(x, z);
             if (distCenter < 130) return 0;
 
@@ -972,6 +978,63 @@
             buildPrefabStructure('prefab_villa', 56, 16, true);
             buildPrefabStructure('prefab_apartment', 92, 16, true);
             buildPrefabStructure('prefab_cottage', 124, 16, true);
+
+            // Tepenin Üzerine Hollywood Tarzı Dev "URASWORLD" Tabelası İnşa Et
+            buildHollywoodUrasWorldSign();
+        }
+
+        function buildHollywoodUrasWorldSign() {
+            const signGroup = new THREE.Group();
+            const hillX = 45;
+            const hillZ = -142;
+            const baseY = getNaturalTerrainHeight(hillX, hillZ);
+
+            // Yüksek Çözünürlüklü 3B Kabartmalı Hollywood Harf Dokusu
+            const c = document.createElement('canvas');
+            c.width = 2048;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
+
+            // Harf gölgesi ve 3B derinlik efekti
+            ctx.font = '900 250px "Inter", "Arial Black", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '14px';
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillText('URASWORLD', c.width / 2 + 10, c.height / 2 + 12);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('URASWORLD', c.width / 2, c.height / 2);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.strokeText('URASWORLD', c.width / 2, c.height / 2);
+
+            const tex = new THREE.CanvasTexture(c);
+            const signMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(92, 23),
+                new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide })
+            );
+            signMesh.position.set(0, 12.5, 0);
+            signGroup.add(signMesh);
+
+            // Harfleri Tutan Hollywood Çelik İskele Direkleri ve Gece Projektörleri
+            const strutMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.5 });
+            const spotMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            for (let sx = -40; sx <= 40; sx += 8) {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 20, 8), strutMat);
+                pole.position.set(sx, 10, -0.8);
+                const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 16, 6), strutMat);
+                brace.position.set(sx, 7.5, -4.5);
+                brace.rotation.x = 0.48;
+                const spot = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 0.8), spotMat);
+                spot.position.set(sx, 1.2, 3.2);
+                signGroup.add(pole, brace, spot);
+            }
+
+            signGroup.position.set(hillX, baseY - 1.5, hillZ);
+            scene.add(signGroup);
         }
 
         function buildMassiveWorld() {
@@ -1520,7 +1583,9 @@
             const maxHp = spec.id === 'tank' || spec.id === 'carrier' ? 300 : (spec.cat === 'emergency' ? 160 : 100);
             const repairCost = Math.max(60, Math.round((spec.price || 250) * 0.25));
 
+            const vehIndex = vehicles.length + 1;
             const vObj = {
+                uid: `veh_${vehIndex}_${spec.id}`,
                 id: spec.id,
                 name: spec.name,
                 spec,
@@ -1533,7 +1598,9 @@
                 maxHp,
                 broken: false,
                 repairCost,
-                collisionCooldown: 0
+                collisionCooldown: 0,
+                driverId: null,
+                driverName: null
             };
             vehicles.push(vObj);
             return vObj;
@@ -1733,6 +1800,8 @@
             }
 
             const v = spawnVehicle(spec.id, sx, sz);
+            // Online odada diğer oyuncuların araçlarıyla ID çakışmaması için benzersiz kimlik ver
+            v.uid = `custom_${myPlayerId}_${Date.now()}_${spec.id}`;
             playSfx('spawn');
             enterVehicle(v);
         }
@@ -2595,21 +2664,43 @@
                 pole.position.y = 3.1;
                 const arm = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.18, 0.18), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
                 arm.position.set(0.5, 6.1, 0);
-                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12), new THREE.MeshBasicMaterial({ color: 0xfffbeb }));
                 bulb.position.set(1.0, 5.8, 0);
 
-                // Warm Ground Illumination Halo & Safe Zone Circle (Visible at Night!)
+                // Göz yormayan, dışa doğru yumuşakça kaybolan (Radial Gradient) gerçekçi gece aydınlatması
+                if (!window._softLampTex) {
+                    const lc = document.createElement('canvas');
+                    lc.width = 256;
+                    lc.height = 256;
+                    const lctx = lc.getContext('2d');
+                    const grad = lctx.createRadialGradient(128, 128, 6, 128, 128, 124);
+                    grad.addColorStop(0.0, 'rgba(254, 240, 138, 0.28)');
+                    grad.addColorStop(0.45, 'rgba(253, 224, 71, 0.10)');
+                    grad.addColorStop(0.82, 'rgba(56, 189, 248, 0.04)');
+                    grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+                    lctx.fillStyle = grad;
+                    lctx.fillRect(0, 0, 256, 256);
+                    window._softLampTex = new THREE.CanvasTexture(lc);
+                }
+
                 const lightHalo = new THREE.Mesh(
-                    new THREE.CircleGeometry(18.0, 28),
-                    new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.16, depthWrite: false })
+                    new THREE.PlaneGeometry(34, 34),
+                    new THREE.MeshBasicMaterial({
+                        map: window._softLampTex,
+                        transparent: true,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    })
                 );
                 lightHalo.rotation.x = -Math.PI / 2;
-                lightHalo.position.y = 0.09;
+                lightHalo.position.y = 0.12;
                 lightHalo.visible = state.isNight;
+                lightHalo.userData.isSkirt = true; // Bina içi X-Ray saydamlaştırmasının bu ışığı bozmasını engeller
                 group.userData.lightHalo = lightHalo;
 
                 group.add(pole, arm, bulb, lightHalo);
-            } else if (itemId === 'water_well') {
+            }
+                else if (itemId === 'water_well') {
                 const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
                 const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.75 });
                 const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.35, 1.2, 14), stoneMat);
@@ -3216,11 +3307,37 @@
             }
             state.inVehicle = v;
             player.mesh.visible = false;
-            const isAir = v.spec.domain.startsWith('air_');
-            document.getElementById('flight-controls').classList.toggle('hidden', !isAir);
-            document.getElementById('flight-controls').classList.toggle('flex', isAir);
-            updateHUD();
-            showToast(`🔑 ${v.name} sürülüyor! (Araç Canı: ${Math.round(v.hp)}/${v.maxHp})`, 'text-amber-300');
+
+            // Aracın sürücü koltuğunda başka bir online oyuncu varsa biz YOLCU oluruz!
+            if (v.driverId && v.driverId !== myPlayerId) {
+                state.isPassenger = true;
+                document.getElementById('flight-controls').classList.add('hidden');
+                document.getElementById('flight-controls').classList.remove('flex');
+                updateHUD();
+                showToast(`💺 ${v.name} aracına YOLCU olarak bindiniz! (Sürücü: ${v.driverName || 'Arkadaşınız'})`, 'text-cyan-300');
+            } else {
+                state.isPassenger = false;
+                v.driverId = myPlayerId;
+                v.driverName = myNickname;
+                if (db) {
+                    db.ref(`rooms/${currentRoom}/vehicles/${v.uid}`).update({
+                        uid: v.uid,
+                        specId: v.id,
+                        driverId: myPlayerId,
+                        driverName: myNickname,
+                        x: Number(v.pos.x.toFixed(2)),
+                        y: Number(v.pos.y.toFixed(2)),
+                        z: Number(v.pos.z.toFixed(2)),
+                        angle: Number(v.angle.toFixed(2)),
+                        hp: Math.round(v.hp)
+                    });
+                }
+                const isAir = v.spec.domain.startsWith('air_');
+                document.getElementById('flight-controls').classList.toggle('hidden', !isAir);
+                document.getElementById('flight-controls').classList.toggle('flex', isAir);
+                updateHUD();
+                showToast(`🔑 ${v.name} SÜRÜCÜ koltuğuna geçtiniz! (Araç Canı: ${Math.round(v.hp)}/${v.maxHp})`, 'text-amber-300');
+            }
         }
 
         function findSafeExitSpotForSeaVehicle(v) {
@@ -3271,9 +3388,24 @@
                 if (!placed) player.pos.set(v.pos.x, Math.max(0, v.pos.y + 1.0), v.pos.z);
                 showToast('🚶 Araçtan inildi');
             }
+            if (!state.isPassenger && v.driverId === myPlayerId) {
+                v.driverId = null;
+                v.driverName = null;
+                if (db) {
+                    db.ref(`rooms/${currentRoom}/vehicles/${v.uid}`).update({
+                        driverId: null,
+                        driverName: null,
+                        x: Number(v.pos.x.toFixed(2)),
+                        y: Number(v.pos.y.toFixed(2)),
+                        z: Number(v.pos.z.toFixed(2)),
+                        angle: Number(v.angle.toFixed(2))
+                    });
+                }
+            }
             player.mesh.position.copy(player.pos);
             player.mesh.visible = true;
             state.inVehicle = null;
+            state.isPassenger = false;
             document.getElementById('flight-controls').classList.add('hidden');
             document.getElementById('flight-controls').classList.remove('flex');
             updateHUD();
@@ -4405,7 +4537,15 @@
                 moveTurn = -state.joystick.x;
             }
 
-            if (state.inVehicle) {
+            if (state.inVehicle && state.isPassenger) {
+                // Yolcu koltuğundayız: Aracı sürücü hareket ettirir, biz aracın konumunu takip ederiz
+                const v = state.inVehicle;
+                player.pos.copy(v.pos);
+                if (!isDraggingCam) {
+                    const diff = Math.atan2(Math.sin(v.angle - state.cameraAngle), Math.cos(v.angle - state.cameraAngle));
+                    state.cameraAngle += diff * 0.05;
+                }
+            } else if (state.inVehicle) {
                 const v = state.inVehicle;
                 const spec = v.spec;
 
@@ -5013,8 +5153,51 @@
 
         // ====================================================
 // ====================================================
-        // FIREBASE CLOUD SAVE & ONLINE MULTIPLAYER MODULE
+        // 3D FLOATING PLAYER NAME TAG GENERATOR & FIREBASE MULTIPLAYER
         // ====================================================
+        function createPlayerNameTagSprite(text, bgColor = 'rgba(15, 23, 42, 0.85)', borderColor = '#38bdf8') {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 128;
+            const ctx = c.getContext('2d');
+
+            ctx.fillStyle = bgColor;
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.roundRect(16, 16, 480, 96, 48);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.font = '900 44px "Inter", sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text.substring(0, 18), 256, 66);
+
+            const tex = new THREE.CanvasTexture(c);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(3.6, 0.9, 1);
+            sprite.position.set(0, 3.25, 0);
+            sprite.renderOrder = 999;
+            return sprite;
+        }
+
+        function setHumanNameTag(humanMesh, playerName, isSelf = false) {
+            if (humanMesh.userData.nameSprite) {
+                humanMesh.remove(humanMesh.userData.nameSprite);
+            }
+            const sprite = createPlayerNameTagSprite(
+                playerName,
+                isSelf ? 'rgba(2, 132, 199, 0.88)' : 'rgba(16, 185, 129, 0.88)',
+                isSelf ? '#fde047' : '#ffffff'
+            );
+            humanMesh.add(sprite);
+            humanMesh.userData.nameSprite = sprite;
+            humanMesh.userData.labelName = playerName;
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyDk9nCKAnEzGIXNass7FKOwN2uUaqIs9Dw",
             authDomain: "craftworld-a464a.firebaseapp.com",
@@ -5031,6 +5214,9 @@
         let currentRoom = localStorage.getItem('cw_room') || 'ortak_sehir_1';
         const remotePlayers = {};
         let mpIntervalsStarted = false;
+
+        // Kendi karakterimizin üstüne başlangıç isim etiketini ekle
+        setHumanNameTag(player.mesh, myNickname, true);
 
         function openMultiplayerModal() {
             const m = document.getElementById('multiplayer-modal');
@@ -5049,13 +5235,14 @@
             if (nickVal) {
                 myNickname = nickVal.replace(/[.#$\[\]]/g, '_');
                 localStorage.setItem('cw_nick', myNickname);
+                setHumanNameTag(player.mesh, myNickname, true);
             }
             if (roomVal) {
                 currentRoom = roomVal.replace(/[.#$\[\]]/g, '_');
                 localStorage.setItem('cw_room', currentRoom);
             }
             openMultiplayerModal();
-            showToast(`🌐 Oda: "${currentRoom}" | Oyuncu: "${myNickname}" olarak güncellendi!`, 'text-cyan-300');
+            showToast(`🌐 Oyuncu Adı: "${myNickname}" | Oda: "${currentRoom}" kaydedildi!`, 'text-cyan-300');
             connectToFirebaseRoom();
         }
 
@@ -5067,9 +5254,14 @@
                 db = firebase.database();
                 connectToFirebaseRoom();
 
+                // Oyuncu ilk kez giriyorsa ve isim seçmediyse 1 saniye sonra isim penceresini göster
+                if (!localStorage.getItem('cw_nick')) {
+                    setTimeout(() => openMultiplayerModal(), 900);
+                }
+
                 if (!mpIntervalsStarted) {
                     mpIntervalsStarted = true;
-                    // Kendi konumumuzu saniyede 10 kez Firebase'e gönder
+                    // Kendi konumumuzu ve sürdüğümüz aracın konumunu saniyede 10 kez Firebase'e gönder
                     setInterval(() => {
                         if (!db) return;
                         const activePos = state.inVehicle ? state.inVehicle.pos : player.pos;
@@ -5080,16 +5272,60 @@
                             y: Number(activePos.y.toFixed(2)),
                             z: Number(activePos.z.toFixed(2)),
                             angle: Number(activeAngle.toFixed(2)),
-                            inVehicle: state.inVehicle ? state.inVehicle.id : null,
+                            inVehicleUid: state.inVehicle ? state.inVehicle.uid : null,
+                            isPassenger: !!state.isPassenger,
                             updatedAt: firebase.database.ServerValue.TIMESTAMP
                         });
+
+                        // Kendi oyuncu verimize bindiğimiz aracın modelini (inVehicleSpec) de ekle ki karşı taraf anında oluşturabilsin
+                        db.ref(`rooms/${currentRoom}/players/${myPlayerId}`).update({
+                            inVehicleSpec: state.inVehicle ? state.inVehicle.id : null
+                        });
+
+                        // Eğer bir aracın SÜRÜCÜSÜ isek aracın güncel koordinatlarını odaya yayınla
+                        if (state.inVehicle && !state.isPassenger && state.inVehicle.driverId === myPlayerId) {
+                            const v = state.inVehicle;
+                            db.ref(`rooms/${currentRoom}/vehicles/${v.uid}`).set({
+                                uid: v.uid,
+                                specId: v.id,
+                                driverId: myPlayerId,
+                                driverName: myNickname,
+                                x: Number(v.pos.x.toFixed(2)),
+                                y: Number(v.pos.y.toFixed(2)),
+                                z: Number(v.pos.z.toFixed(2)),
+                                angle: Number(v.angle.toFixed(2)),
+                                hp: Math.round(v.hp)
+                            });
+                        }
                     }, 100);
 
-                    // Arkadaşların karakterlerini yumuşakça hareket ettir
+                    // Arkadaşların karakterlerini ve sürdükleri araçları yumuşakça (Lerp ile) hareket ettir
                     setInterval(() => {
                         Object.values(remotePlayers).forEach(rp => {
                             rp.mesh.position.lerp(rp.targetPos, 0.25);
                             rp.mesh.rotation.y = rp.angle;
+                        });
+                        vehicles.forEach(v => {
+                            if (v.driverId && v.driverId !== myPlayerId && v.netTargetPos) {
+                                const moveDist = v.pos.distanceTo(v.netTargetPos);
+                                if (moveDist > 40) {
+                                    v.pos.copy(v.netTargetPos); // Çok uzaktaysa doğrudan ışınla
+                                } else {
+                                    v.pos.lerp(v.netTargetPos, 0.32);
+                                }
+                                v.angle = v.netTargetAngle !== undefined ? v.netTargetAngle : v.angle;
+                                v.mesh.position.copy(v.pos);
+                                v.mesh.rotation.y = v.angle;
+                                v.mesh.visible = true;
+
+                                // Arkadaşımız aracı sürerken tekerlekler ve pervaneler dönsün
+                                if (moveDist > 0.05 && v.mesh.userData.wheels) {
+                                    v.mesh.userData.wheels.forEach(w => { w.rotation.x += 0.35; });
+                                }
+                                if (v.mesh.userData.rotors) {
+                                    v.mesh.userData.rotors.forEach(r => { r.rotation.y += 0.35; r.rotation.z += 0.35; });
+                                }
+                            }
                         });
                     }, 16);
                 }
@@ -5104,7 +5340,7 @@
             const myRef = roomRef.child(`players/${myPlayerId}`);
             myRef.onDisconnect().remove();
 
-            // A) Odadaki diğer oyuncuları dinle
+            // A) Odadaki diğer oyuncuları, isim etiketlerini ve sürdükleri aracı dinle
             roomRef.child('players').off();
             roomRef.child('players').on('value', snapshot => {
                 const allPlayers = snapshot.val() || {};
@@ -5122,23 +5358,92 @@
                 activeIds.forEach(pid => {
                     if (pid === myPlayerId) return;
                     const pData = allPlayers[pid];
+                    const pName = pData.name || 'Oyuncu';
+
                     if (!remotePlayers[pid]) {
                         const mesh = createHumanMesh(0x10b981, 0x1e293b);
+                        setHumanNameTag(mesh, pName, false);
                         scene.add(mesh);
                         remotePlayers[pid] = {
                             mesh,
                             targetPos: new THREE.Vector3(pData.x || 0, pData.y || 0, pData.z || 12),
                             angle: pData.angle || 0
                         };
-                        showToast(`👋 ${pData.name || 'Arkadaşınız'} odaya katıldı!`, 'text-emerald-300');
+                        showToast(`👋 ${pName} odaya katıldı!`, 'text-emerald-300');
+                    }
+
+                    const rp = remotePlayers[pid];
+                    rp.targetPos.set(pData.x || 0, pData.y || 0, pData.z || 12);
+                    rp.angle = pData.angle || 0;
+
+                    if (rp.mesh.userData.labelName !== pName) {
+                        setHumanNameTag(rp.mesh, pName, false);
+                    }
+
+                    // Eğer arkadaşımız bir araç sürüyorsa, aracı doğrudan bul/oluştur ve konumunu eşitle!
+                    if (pData.inVehicleUid) {
+                        let drivenVeh = vehicles.find(veh => veh.uid === pData.inVehicleUid);
+                        if (!drivenVeh && pData.inVehicleSpec) {
+                            drivenVeh = spawnVehicle(pData.inVehicleSpec, pData.x || 0, pData.z || 0);
+                            drivenVeh.uid = pData.inVehicleUid;
+                        }
+                        if (drivenVeh) {
+                            drivenVeh.mesh.visible = true;
+                            if (! pData.isPassenger) {
+                                drivenVeh.driverId = pid;
+                                drivenVeh.driverName = pName;
+                                if (!drivenVeh.netTargetPos) drivenVeh.netTargetPos = drivenVeh.pos.clone();
+                                drivenVeh.netTargetPos.set(pData.x || 0, pData.y || 0, pData.z || 0);
+                                drivenVeh.netTargetAngle = pData.angle || 0;
+                            }
+                        }
+                        // Karakterin 3B vücudunu aracın içinde gizle ama İsim Etiketini aracın üstünde görünür tut!
+                        rp.mesh.children.forEach(ch => {
+                            ch.visible = (ch === rp.mesh.userData.nameSprite);
+                        });
                     } else {
-                        remotePlayers[pid].targetPos.set(pData.x || 0, pData.y || 0, pData.z || 12);
-                        remotePlayers[pid].angle = pData.angle || 0;
+                        // Yaya ise tüm vücudunu ve isim etiketini göster
+                        rp.mesh.visible = true;
+                        rp.mesh.children.forEach(ch => { ch.visible = true; });
                     }
                 });
             });
 
-            // B) Ortak inşaat bloklarını dinle (fromNetwork = true ile sonsuz döngüyü önle!)
+            // B) Odadaki araçların sürücülerini ve hareketlerini senkronize et
+            roomRef.child('vehicles').off();
+            roomRef.child('vehicles').on('value', snapshot => {
+                const allVehs = snapshot.val() || {};
+                Object.keys(allVehs).forEach(vUid => {
+                    const vData = allVehs[vUid];
+                    let localV = vehicles.find(veh => veh.uid === vUid);
+
+                    // Eğer arkadaşımız garajdan yeni bir araç çağırdıysa bizim ekranımızda da oluştur
+                    if (!localV && vData.specId) {
+                        localV = spawnVehicle(vData.specId, vData.x || 0, vData.z || 0);
+                        localV.uid = vUid;
+                    }
+                    if (localV) {
+                        localV.mesh.visible = true;
+                        localV.driverId = vData.driverId || null;
+                        localV.driverName = vData.driverName || null;
+
+                        // Eğer aracı başka bir oyuncu sürüyorsa hedef koordinatlarını güncelle
+                        if (vData.driverId && vData.driverId !== myPlayerId) {
+                            if (!localV.netTargetPos) localV.netTargetPos = localV.pos.clone();
+                            localV.netTargetPos.set(vData.x, vData.y, vData.z);
+                            localV.netTargetAngle = vData.angle || 0;
+
+                            // Biz de aynı araçtaysak ve bizden önce sürücü koltuğu alındıysa otomatik YOLCU ol
+                            if (state.inVehicle === localV && !state.isPassenger) {
+                                state.isPassenger = true;
+                                showToast(`💺 Aracı ${localV.driverName || 'arkadaşınız'} kullanıyor, yolcu koltuğuna geçtiniz.`, 'text-cyan-300');
+                            }
+                        }
+                    }
+                });
+            });
+
+            // C) Ortak inşaat bloklarını dinle
             roomRef.child('sharedStructures').off();
             roomRef.child('sharedStructures').on('child_added', snap => {
                 const st = snap.val();
