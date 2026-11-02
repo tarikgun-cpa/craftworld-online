@@ -182,6 +182,9 @@
                 <button onclick="toggleChatPanel()" class="ergo-btn bg-teal-600/95 text-white font-black py-1 px-2.5 rounded-xl border border-teal-300 shadow text-[11px] flex items-center gap-1">
                     <i class="fas fa-comments"></i> Sohbet & Emoji
                 </button>
+                <button onclick="triggerUrasRoyalSurprise()" class="ergo-btn bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border-2 border-white shadow-lg text-[11px] flex items-center gap-1 animate-pulse" title="Uras'a Özel Havai Fişek, Kral Tacı ve Hediye! [K]">
+                    <span>👑</span> <span>Uras Sürprizi [K]</span>
+                </button>
                 <button onclick="startOrCancelVehicleJob()" id="btn-vehicle-job" class="hidden ergo-btn bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border border-white shadow text-[11px] items-center gap-1 animate-bounce">
                     <i class="fas fa-briefcase"></i> <span id="vehicle-job-btn-label">Meslek Başlat [J]</span>
                 </button>
@@ -747,6 +750,98 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.08;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        // ====================================================
+        // PROSEDÜREL HD DOKU (TEXTURE) & SIFIR-KASMA MATERYAL ÖNBELLEĞİ
+        // ====================================================
+        const TEX_CACHE = {};
+        const MAT_CACHE = {};
+
+        function getProceduralTexture(type) {
+            if (TEX_CACHE[type]) return TEX_CACHE[type];
+            const c = document.createElement('canvas');
+            c.width = 256; c.height = 256;
+            const ctx = c.getContext('2d');
+
+            if (type === 'brick') {
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillRect(0, 0, 256, 256);
+                for (let row = 0; row < 8; row++) {
+                    const y = row * 32;
+                    const offset = (row % 2) * 32;
+                    for (let col = -1; col < 5; col++) {
+                        const x = col * 64 + offset;
+                        ctx.fillStyle = (row + col) % 2 === 0 ? '#e2e8f0' : '#f1f5f9';
+                        ctx.fillRect(x + 3, y + 3, 58, 26);
+                        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                        ctx.fillRect(x + 3, y + 23, 58, 6);
+                    }
+                }
+            } else if (type === 'wood') {
+                ctx.fillStyle = '#d6d3d1';
+                ctx.fillRect(0, 0, 256, 256);
+                for (let i = 0; i < 8; i++) {
+                    const y = i * 32;
+                    ctx.fillStyle = i % 2 === 0 ? '#e7e5e4' : '#d6d3d1';
+                    ctx.fillRect(0, y, 256, 30);
+                    ctx.fillStyle = '#a8a29e';
+                    ctx.fillRect(0, y + 30, 256, 2);
+                    ctx.fillRect((i * 73) % 256, y, 2, 32);
+                }
+            } else if (type === 'stone') {
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(0, 0, 256, 256);
+                for (let i = 0; i < 45; i++) {
+                    const x = (i * 53) % 230;
+                    const y = (i * 37) % 230;
+                    ctx.fillStyle = i % 2 === 0 ? '#cbd5e1' : '#e2e8f0';
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, 36, 26, 8);
+                    ctx.fill();
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            } else if (type === 'roof_tiles') {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(0, 0, 256, 256);
+                for (let y = 0; y < 256; y += 24) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+                    ctx.fillRect(0, y + 18, 256, 6);
+                    for (let x = 0; x < 256; x += 32) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x, y, 32, 24);
+                    }
+                }
+            } else if (type === 'asphalt') {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, 256, 256);
+                for (let i = 0; i < 1600; i++) {
+                    ctx.fillStyle = i % 2 === 0 ? '#334155' : '#0f172a';
+                    ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+                }
+            }
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            TEX_CACHE[type] = tex;
+            return tex;
+        }
+
+        function getSharedMaterial(texType, colorHex, roughness = 0.75, metalness = 0.08) {
+            const key = `${texType || 'none'}_${colorHex}_${roughness}_${metalness}`;
+            if (!MAT_CACHE[key]) {
+                const params = { color: colorHex, roughness, metalness };
+                if (texType) params.map = getProceduralTexture(texType);
+                MAT_CACHE[key] = new THREE.MeshStandardMaterial(params);
+            }
+            return MAT_CACHE[key];
+        }
 
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3b7a57, 0.72);
         scene.add(hemiLight);
@@ -1260,32 +1355,67 @@
 
         function spawnTree(x, y, z, style = 'oak') {
             const g = new THREE.Group();
-            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
-            const leafMat = new THREE.MeshStandardMaterial({
-                color: style === 'palm' ? 0x16a34a : (style === 'pine' ? 0x14532d : 0x15803d),
-                roughness: 0.8
-            });
+            const trunkMat = getSharedMaterial('wood', 0x6b3e26, 0.9);
+            const leafMat1 = getSharedMaterial(null, style === 'palm' ? 0x16a34a : (style === 'pine' ? 0x14532d : 0x15803d), 0.75);
+            const leafMat2 = getSharedMaterial(null, style === 'palm' ? 0x22c55e : (style === 'pine' ? 0x166534 : 0x16a34a), 0.75);
 
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, 3.2, 8), trunkMat);
-            trunk.position.y = 1.6;
+            // Kök + Gövde
+            const root = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.72, 0.8, 7), trunkMat);
+            root.position.y = 0.4;
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.46, 3.4, 8), trunkMat);
+            trunk.position.y = 2.0;
             trunk.castShadow = true;
-            g.add(trunk);
+            g.add(root, trunk);
 
             if (style === 'pine') {
-                const c1 = new THREE.Mesh(new THREE.ConeGeometry(2.4, 4.0, 8), leafMat);
-                c1.position.y = 4.0;
-                const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.2, 8), leafMat);
-                c2.position.y = 5.8;
-                c1.castShadow = true;
-                c2.castShadow = true;
-                g.add(c1, c2);
+                // 3 Katmanlı Ladin / Çam Ağacı
+                [[2.6, 3.0, 3.4], [2.0, 2.6, 4.9], [1.3, 2.2, 6.2]].forEach(([rad, h, py], idx) => {
+                    const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 7), idx % 2 === 0 ? leafMat1 : leafMat2);
+                    cone.position.y = py;
+                    cone.castShadow = true;
+                    g.add(cone);
+                });
+            } else if (style === 'palm') {
+                // Eğimli Tropikal Palmiye Yaprakları & Hindistan Cevizleri
+                const cocoMat = getSharedMaterial(null, 0x451a03, 0.8);
+                for (let i = 0; i < 6; i++) {
+                    const ang = (i * Math.PI) / 3;
+                    const frond = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.14, 3.2), i % 2 === 0 ? leafMat1 : leafMat2);
+                    frond.position.set(Math.sin(ang) * 1.3, 3.65, Math.cos(ang) * 1.3);
+                    frond.rotation.y = ang;
+                    frond.rotation.x = 0.38;
+                    frond.castShadow = true;
+                    g.add(frond);
+                }
+                [[-0.25, 3.4, 0.2], [0.25, 3.4, -0.2]].forEach(([cx, cy, cz]) => {
+                    const coco = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), cocoMat);
+                    coco.position.set(cx, cy, cz);
+                    g.add(coco);
+                });
             } else {
-                const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(2.3, 1), leafMat);
-                crown.position.y = 4.2;
-                crown.castShadow = true;
-                g.add(crown);
+                // Çok Küheli Doğal Meşe Ağacı + Yan Dal + Kırmızı Elmalar
+                const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 1.4, 6), trunkMat);
+                branch.position.set(0.55, 2.7, 0);
+                branch.rotation.z = -0.7;
+                const cMain = new THREE.Mesh(new THREE.DodecahedronGeometry(2.1, 1), leafMat1);
+                cMain.position.set(0, 4.3, 0);
+                cMain.castShadow = true;
+                const cLeft = new THREE.Mesh(new THREE.DodecahedronGeometry(1.45, 1), leafMat2);
+                cLeft.position.set(-1.1, 3.9, 0.6);
+                const cRight = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 1), leafMat2);
+                cRight.position.set(1.1, 4.0, -0.5);
+                g.add(branch, cMain, cLeft, cRight);
+
+                const appleMat = getSharedMaterial(null, 0xef4444, 0.4);
+                [[-1.2, 3.4, 1.2], [1.3, 3.6, 0.7], [0.2, 3.5, -1.6]].forEach(([ax, ay, az]) => {
+                    const apple = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), appleMat);
+                    apple.position.set(ax, ay, az);
+                    g.add(apple);
+                });
             }
 
+            const scaleVar = 0.88 + ((Math.abs(Math.sin(x * 12.3 + z * 45.6))) * 0.28);
+            g.scale.set(scaleVar, scaleVar, scaleVar);
             g.position.set(x, y, z);
             scene.add(g);
             natureObjects.push({
@@ -1304,28 +1434,29 @@
             const isGold = mType === 'gold';
             const isSilver = mType === 'silver';
 
-            const baseMat = new THREE.MeshStandardMaterial({
-                color: isGold ? 0x57534e : (isSilver ? 0x475569 : 0x64748b),
-                roughness: 0.8,
-                metalness: 0.2
-            });
-            const r1 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), baseMat);
-            r1.position.y = 1.0;
-            r1.scale.set(1.25, 0.9, 1.15);
+            const baseMat = getSharedMaterial('stone', isGold ? 0x57534e : (isSilver ? 0x475569 : 0x64748b), 0.85, 0.15);
+            const r1 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.55, 0), baseMat);
+            r1.position.set(0, 0.95, 0);
+            r1.scale.set(1.3, 0.9, 1.15);
             r1.castShadow = true;
-            g.add(r1);
+            const r2 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.0, 0), baseMat);
+            r2.position.set(1.1, 0.65, 0.5);
+            const r3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 0), baseMat);
+            r3.position.set(-1.0, 0.55, -0.6);
+            g.add(r1, r2, r3);
 
             if (isGold || isSilver) {
                 const oreMat = new THREE.MeshStandardMaterial({
                     color: isGold ? 0xfacc15 : 0xe2e8f0,
-                    metalness: 0.85,
-                    roughness: 0.2,
-                    emissive: isGold ? 0x713f12 : 0x334155,
-                    emissiveIntensity: 0.35
+                    metalness: 0.9,
+                    roughness: 0.15,
+                    emissive: isGold ? 0x854d0e : 0x334155,
+                    emissiveIntensity: 0.45
                 });
-                [[-0.7, 1.2, 0.6], [0.7, 1.1, 0.5], [0, 1.65, -0.4], [-0.4, 0.9, -0.7], [0.6, 1.3, -0.5]].forEach(([ox, oy, oz]) => {
-                    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), oreMat);
+                [[-0.7, 1.25, 0.65], [0.75, 1.15, 0.55], [0, 1.7, -0.35], [-0.45, 0.95, -0.75], [0.95, 0.9, 0.85]].forEach(([ox, oy, oz]) => {
+                    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), oreMat);
                     crystal.position.set(ox, oy, oz);
+                    crystal.rotation.set(ox, oy, oz);
                     g.add(crystal);
                 });
             }
@@ -1346,56 +1477,105 @@
         function spawnFarmAnimal(animalType, x, z) {
             const g = new THREE.Group();
             const y = Math.max(0, getNaturalTerrainHeight(x, z));
+            const eyeMat = getSharedMaterial(null, 0x0f172a, 0.2);
             let name = 'İnek (Çiftlik)';
             let icon = '🐄';
             let payout = 65;
 
             if (animalType === 'cow') {
-                const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.8 });
-                const spotMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-                const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.0, 2.2), whiteMat);
-                body.position.y = 1.05;
-                const spot = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.55, 0.9), spotMat);
-                spot.position.set(0, 1.15, 0.2);
-                const head = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.8, 0.9), whiteMat);
-                head.position.set(0, 1.45, 1.3);
-                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.35), new THREE.MeshStandardMaterial({ color: 0xfda4af }));
-                snout.position.set(0, 1.28, 1.75);
-                g.add(body, spot, head, snout);
-                [[-0.45, 0.75], [0.45, 0.75], [-0.45, -0.75], [0.45, -0.75]].forEach(([lx, lz]) => {
-                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.75, 0.28), whiteMat);
+                const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.8);
+                const spotMat = getSharedMaterial(null, 0x1e293b, 0.8);
+                const pinkMat = getSharedMaterial(null, 0xfda4af, 0.7);
+                const hornMat = getSharedMaterial(null, 0xd6d3d1, 0.5);
+
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.05, 2.25), whiteMat);
+                body.position.y = 1.08;
+                body.castShadow = true;
+                const spot1 = new THREE.Mesh(new THREE.BoxGeometry(1.39, 0.55, 0.85), spotMat);
+                spot1.position.set(0, 1.2, 0.25);
+                const spot2 = new THREE.Mesh(new THREE.BoxGeometry(1.39, 0.48, 0.65), spotMat);
+                spot2.position.set(0, 1.05, -0.65);
+                const udder = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.25, 0.65), pinkMat);
+                udder.position.set(0, 0.52, -0.35);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.82, 0.92), whiteMat);
+                head.position.set(0, 1.48, 1.32);
+                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.42, 0.38), pinkMat);
+                snout.position.set(0, 1.30, 1.82);
+
+                // Gözler, Kulaklar, Boynuzlar ve Kuyruk
+                [-0.26, 0.26].forEach(ex => {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
+                    eye.position.set(ex, 1.58, 1.78);
+                    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.32, 6), hornMat);
+                    horn.position.set(ex * 1.35, 1.98, 1.25);
+                    horn.rotation.z = ex > 0 ? -0.25 : 0.25;
+                    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.16), spotMat);
+                    ear.position.set(ex * 1.9, 1.65, 1.2);
+                    g.add(eye, horn, ear);
+                });
+                const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.9, 6), whiteMat);
+                tail.position.set(0, 1.05, -1.22);
+                tail.rotation.x = 0.25;
+                g.add(body, spot1, spot2, udder, head, snout, tail);
+
+                [[-0.45, 0.78], [0.45, 0.78], [-0.45, -0.78], [0.45, -0.78]].forEach(([lx, lz]) => {
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.75, 8), whiteMat);
                     leg.position.set(lx, 0.38, lz);
-                    g.add(leg);
+                    const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.16, 8), spotMat);
+                    hoof.position.set(lx, 0.08, lz);
+                    g.add(leg, hoof);
                 });
             } else if (animalType === 'sheep') {
                 name = 'Koyun (Yün & Süt)';
                 icon = '🐑';
                 payout = 55;
-                const woolMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.95 });
-                const faceMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
-                const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.9, 1.65), woolMat);
-                body.position.y = 0.85;
-                const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.75), faceMat);
-                head.position.set(0, 1.15, 0.95);
-                g.add(body, head);
+                const woolMat = getSharedMaterial(null, 0xf8fafc, 0.95);
+                const faceMat = getSharedMaterial(null, 0x334155, 0.8);
+
+                // Kabarık Yün Gövde Küreleri
+                const body = new THREE.Mesh(new THREE.DodecahedronGeometry(0.82, 1), woolMat);
+                body.scale.set(0.95, 0.85, 1.35);
+                body.position.y = 0.92;
+                body.castShadow = true;
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.75), faceMat);
+                head.position.set(0, 1.22, 1.02);
+                const woolCap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.36, 0), woolMat);
+                woolCap.position.set(0, 1.52, 0.98);
+                [-0.22, 0.22].forEach(ex => {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eyeMat);
+                    eye.position.set(ex, 1.28, 1.40);
+                    g.add(eye);
+                });
+                g.add(body, head, woolCap);
                 [[-0.35, 0.55], [0.35, 0.55], [-0.35, -0.55], [0.35, -0.55]].forEach(([lx, lz]) => {
-                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.6, 0.22), faceMat);
-                    leg.position.set(lx, 0.3, lz);
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.62, 8), faceMat);
+                    leg.position.set(lx, 0.31, lz);
                     g.add(leg);
                 });
             } else {
                 name = 'Tavuk (Çiftlik)';
                 icon = '🐔';
                 payout = 35;
-                const featherMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.8 });
-                const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
-                const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.55, 0.8), featherMat);
-                body.position.y = 0.5;
-                const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.4), featherMat);
-                head.position.set(0, 0.85, 0.4);
-                const comb = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.28), redMat);
-                comb.position.set(0, 1.12, 0.4);
-                g.add(body, head, comb);
+                const featherMat = getSharedMaterial(null, 0xfffbeb, 0.8);
+                const redMat = getSharedMaterial(null, 0xdc2626, 0.5);
+                const beakMat = getSharedMaterial(null, 0xf59e0b, 0.5);
+
+                const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 10), featherMat);
+                body.scale.set(0.85, 0.9, 1.25);
+                body.position.y = 0.52;
+                const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 0.52), featherMat);
+                wingL.position.set(-0.36, 0.55, 0);
+                const wingR = wingL.clone();
+                wingR.position.x = 0.36;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), featherMat);
+                head.position.set(0, 0.88, 0.38);
+                const comb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.28), redMat);
+                comb.position.set(0, 1.12, 0.38);
+                const beak = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.24, 6), beakMat);
+                beak.rotation.x = Math.PI / 2;
+                beak.position.set(0, 0.86, 0.65);
+                g.add(body, wingL, wingR, head, comb, beak);
             }
 
             g.position.set(x, y, z);
@@ -1473,10 +1653,17 @@
             const wheels = [];
             const rotors = [];
 
-            const bodyMat = new THREE.MeshStandardMaterial({ color: spec.color, metalness: 0.35, roughness: 0.35 });
-            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
-            const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55, roughness: 0.1 });
+            const bodyMat = new THREE.MeshPhysicalMaterial({
+                color: spec.color,
+                metalness: 0.45,
+                roughness: 0.22,
+                clearcoat: 0.85,
+                clearcoatRoughness: 0.12
+            });
+            const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.35, 0.15);
+            const darkMat = getSharedMaterial(null, 0x1e293b, 0.65, 0.25);
+            const chromeMat = getSharedMaterial(null, 0xe2e8f0, 0.15, 0.9);
+            const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0f172a, emissive: 0x0284c7, emissiveIntensity: 0.18, transparent: true, opacity: 0.68, roughness: 0.08, metalness: 0.2 });
             const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3 });
             const headLightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
             const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
@@ -1560,11 +1747,32 @@
                     group.add(spoiler);
                 }
 
-                const hl = new THREE.Mesh(new THREE.BoxGeometry(width * 0.8, 0.25, 0.1), headLightMat);
-                hl.position.set(0, 0.82, len / 2 + 0.02);
-                const tl = new THREE.Mesh(new THREE.BoxGeometry(width * 0.8, 0.25, 0.1), tailLightMat);
-                tl.position.set(0, 0.82, -len / 2 - 0.02);
-                group.add(hl, tl);
+                // Ön ve Arka Tamponlar + Krom Ön Panjur Izgarası + Plaka + Yan Aynalar
+                const bumperF = new THREE.Mesh(new THREE.BoxGeometry(width + 0.12, 0.32, 0.35), darkMat);
+                bumperF.position.set(0, 0.48, len / 2 + 0.08);
+                const bumperR = bumperF.clone();
+                bumperR.position.set(0, 0.48, -len / 2 - 0.08);
+                const grille = new THREE.Mesh(new THREE.BoxGeometry(width * 0.48, 0.34, 0.14), chromeMat);
+                grille.position.set(0, 0.78, len / 2 + 0.03);
+                const plate = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.18, 0.16), whiteMat);
+                plate.position.set(0, 0.48, len / 2 + 0.19);
+
+                // Ayrı Sol/Sağ Farlar ve Stop Lambaları
+                [-width * 0.34, width * 0.34].forEach(lx => {
+                    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.24, 0.14), headLightMat);
+                    hl.position.set(lx, 0.82, len / 2 + 0.03);
+                    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.24, 0.14), tailLightMat);
+                    tl.position.set(lx, 0.82, -len / 2 - 0.03);
+                    group.add(hl, tl);
+                });
+
+                // Sol/Sağ Yan Dikiz Aynaları
+                [-width / 2 - 0.12, width / 2 + 0.12].forEach(mx => {
+                    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.16), bodyMat);
+                    mirror.position.set(mx, 1.35, cabin.position.z + 0.55);
+                    group.add(mirror);
+                });
+                group.add(bumperF, bumperR, grille, plate);
 
                 const zPositions = spec.id === 'semi' ? [len / 2 - 1.1, -0.5, -len / 2 + 1.1] : [len / 2 - 1.0, -len / 2 + 1.0];
                 zPositions.forEach(wz => {
@@ -2579,15 +2787,15 @@
                 marker.position.y = 0.15;
                 group.add(marker);
             } else if (itemId === 'foundation') {
-                const col = customColorHex || 0x64748b;
-                const stone = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.4, GRID), new THREE.MeshStandardMaterial({ color: col, roughness: 0.85 }));
+                const col = customColorHex || 0x94a3b8;
+                const stone = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.4, GRID), getSharedMaterial('stone', col, 0.85));
                 stone.position.y = 0.2;
                 stone.receiveShadow = true;
                 stone.castShadow = true;
                 group.add(stone);
             } else if (itemId === 'wood_deck') {
-                const col = customColorHex || 0x92400e;
-                const deck = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.25, GRID), new THREE.MeshStandardMaterial({ color: col, roughness: 0.75 }));
+                const col = customColorHex || 0xb45309;
+                const deck = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.25, GRID), getSharedMaterial('wood', col, 0.7));
                 deck.position.y = 0.125;
                 deck.receiveShadow = true;
                 group.add(deck);
@@ -2615,19 +2823,22 @@
                     group.add(stone);
                 });
             } else if (itemId === 'brick_wall' || itemId === 'concrete_wall') {
-                const defaultCol = itemId === 'brick_wall' ? 0xb91c1c : 0xf1f5f9;
-                const wallMat = new THREE.MeshStandardMaterial({ color: customColorHex || defaultCol, roughness: 0.8 });
-                const trimMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
+                const defaultCol = itemId === 'brick_wall' ? 0xdc2626 : 0xf8fafc;
+                const texName = itemId === 'brick_wall' ? 'brick' : null;
+                const wallMat = getSharedMaterial(texName, customColorHex || defaultCol, 0.78);
+                const trimMat = getSharedMaterial('stone', 0x475569, 0.85);
 
-                // Positioned right on the +Z border (z = EDGE = +2.0) of the 4x4 cell!
                 const wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_SPAN, GRID, WALL_THICK), wallMat);
                 wall.position.set(0, GRID / 2, EDGE);
                 wall.castShadow = true;
                 wall.receiveShadow = true;
 
-                const baseboard = new THREE.Mesh(new THREE.BoxGeometry(WALL_SPAN + 0.04, 0.28, WALL_THICK + 0.06), trimMat);
-                baseboard.position.set(0, 0.14, EDGE);
-                group.add(wall, baseboard);
+                // Alt Süpürgelik + Üst Kat Korniş Silmesi
+                const baseboard = new THREE.Mesh(new THREE.BoxGeometry(WALL_SPAN + 0.05, 0.32, WALL_THICK + 0.08), trimMat);
+                baseboard.position.set(0, 0.16, EDGE);
+                const cornice = new THREE.Mesh(new THREE.BoxGeometry(WALL_SPAN + 0.06, 0.22, WALL_THICK + 0.10), trimMat);
+                cornice.position.set(0, GRID - 0.11, EDGE);
+                group.add(wall, baseboard, cornice);
             } else if (itemId === 'log_wall') {
                 const logMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x78350f, roughness: 0.8 });
                 for (let i = 0; i < 5; i++) {
@@ -2760,8 +2971,9 @@
                     postT.position.set(rx, GRID + 0.5, GRID / 2 - 0.25);
                     group.add(handrail, postB, postT);
                 });
-            } else if (itemId === 'roof') {
-                const roofMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x991b1b, roughness: 0.65 });
+            
+                } else if (itemId === 'roof') {
+                const roofMat = getSharedMaterial('roof_tiles', customColorHex || 0xb91c1c, 0.65);
                 const slopeLen = Math.hypot(GRID / 2 + 0.35, 2.1);
                 const leftSlope = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, 0.24, GRID + 0.4), roofMat);
                 leftSlope.position.set(-1.05, 1.05, 0);
@@ -2778,14 +2990,14 @@
                 ridge.position.set(0, 2.1, 0);
                 group.add(leftSlope, rightSlope, ridge);
             } else if (itemId === 'roof_hip') {
-                const roofMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x991b1b, roughness: 0.65 });
+                const roofMat = getSharedMaterial('roof_tiles', customColorHex || 0xb91c1c, 0.65);
                 const hip = new THREE.Mesh(new THREE.ConeGeometry((GRID + 0.6) * 0.72, 2.2, 4), roofMat);
                 hip.position.y = 1.1;
                 hip.rotation.y = Math.PI / 4;
                 hip.castShadow = true;
                 group.add(hip);
             } else if (itemId === 'pergola') {
-                const woodMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x78350f, roughness: 0.7 });
+                const woodMat = getSharedMaterial('wood', customColorHex || 0x78350f, 0.7);
                 [[-1.85, -1.85], [1.85, -1.85], [-1.85, 1.85], [1.85, 1.85]].forEach(([px, pz]) => {
                     const post = new THREE.Mesh(new THREE.BoxGeometry(0.24, GRID, 0.24), woodMat);
                     post.position.set(px, GRID / 2, pz);
@@ -2797,13 +3009,14 @@
                     group.add(beam);
                 }
             } else if (itemId === 'road') {
-                const asphalt = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.22, GRID), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 }));
+                const asphalt = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.22, GRID), getSharedMaterial('asphalt', 0x334155, 0.9));
                 asphalt.position.y = 0.11;
                 asphalt.receiveShadow = true;
                 const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.25, GRID * 0.6), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
                 stripe.position.y = 0.12;
                 group.add(asphalt, stripe);
-            } else if (itemId === 'bridge') {
+            }
+                else if (itemId === 'bridge') {
                 const deck = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.4, GRID), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 }));
                 deck.position.y = 0.2;
                 const railMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.4, roughness: 0.4 });
@@ -3416,6 +3629,29 @@
                 placeSingleBlock('garage_arch', cx, baseY, cz + GRID, 0, 0xf59e0b, true);
                 signMesh = createArchitecturalSign('prefab_mechanic', cx, baseY, cz + GRID + EDGE);
                 if (!silent) showToast('🔧 Oto Tamircisi kuruldu! Önündeki sarı halkada araçlarınızı %55 indirimle tamir edebilirsiniz!', 'text-amber-300');
+
+            } else if (prefabId === 'prefab_bank') {
+                // 2 Katlı Sütunlu ve Altın Kubbeli Merkez Bankası
+                for (let floor = 0; floor < 2; floor++) {
+                    const fy = baseY + floor * GRID;
+                    for (let dx = -2; dx <= 2; dx++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            if (floor === 0) placeSingleBlock('marble_floor', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xf8fafc);
+                            if (!(dx === 2 && (dz === 0 || dz === 1) && floor === 0)) {
+                                placeSingleBlock('ceiling_tile', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xfde047);
+                            }
+                            if (floor === 1) {
+                                placeSingleBlock('roof_hip', cx + dx * GRID, fy + GRID, cz + dz * GRID, 0, 0xd97706);
+                            }
+                        }
+                    }
+                    buildRoomPerimeter(cx, cz, fy, -2, 2, -1, 1, 'concrete_wall', 0xf8fafc, floor === 0 ? 0 : 99, 1);
+                    if (floor === 0) placeSingleBlock('stairs', cx + 2 * GRID, fy, cz, 0, 0xd97706);
+                }
+                // Ön Giriş Altın Sütunlar
+                placeSingleBlock('pillar_column', cx - 2 * GRID, baseY, cz + GRID, 0, 0xfacc15);
+                placeSingleBlock('pillar_column', cx + GRID, baseY, cz + GRID, 0, 0xfacc15);
+                if (!silent) showToast('🏦 Merkez Bankası kuruldu! (+5 Nüfus ve +95 TL/15sn Finans Geliri)', 'text-amber-300');
 
             } else if (prefabId === 'prefab_fenced_yard') {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -4392,9 +4628,14 @@
                     s.mesh.userData.isCutaway = makeTransparent;
                     s.mesh.traverse(ch => {
                         if (ch.isMesh && !ch.userData.isSkirt && ch.material) {
-                            ch.material.transparent = makeTransparent;
-                            ch.material.opacity = makeTransparent ? 0.22 : 1.0;
-                            ch.material.needsUpdate = true;
+                            if (makeTransparent) {
+                                if (!ch.userData.origMat) ch.userData.origMat = ch.material;
+                                ch.material = ch.userData.origMat.clone();
+                                ch.material.transparent = true;
+                                ch.material.opacity = 0.25;
+                            } else if (ch.userData.origMat) {
+                                ch.material = ch.userData.origMat;
+                            }
                         }
                     });
                 }
@@ -5185,38 +5426,82 @@
         // ====================================================
         function createHumanMesh(shirtColor = 0x0284c7, hairColor = 0x1e293b) {
             const g = new THREE.Group();
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.6 });
-            const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.7 });
-            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.8 });
-            const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.8 });
+            const skinMat = getSharedMaterial(null, 0xfcd34d, 0.55);
+            const shirtMat = getSharedMaterial(null, shirtColor, 0.65);
+            const pantsMat = getSharedMaterial(null, 0x1e3a8a, 0.75);
+            const hairMat = getSharedMaterial(null, hairColor, 0.8);
+            const shoeMat = getSharedMaterial(null, 0x0f172a, 0.6);
+            const whiteMat = getSharedMaterial(null, 0xffffff, 0.3);
 
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), skinMat);
-            head.position.y = 2.25;
-            const hair = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.28, 0.76), hairMat);
-            hair.position.y = 2.55;
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.0, 0.45), shirtMat);
-            torso.position.y = 1.4;
+            // Baş, Boyun, Saç ve Yüz (Gözler & Kaşlar)
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.25, 8), skinMat);
+            neck.position.y = 1.92;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.68, 0.68), skinMat);
+            head.position.y = 2.28;
+            head.castShadow = true;
 
-            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.9, 0.28), shirtMat);
-            armL.position.set(-0.6, 1.4, 0);
-            const armR = armL.clone();
-            armR.position.x = 0.6;
+            const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.26, 0.74), hairMat);
+            hairTop.position.set(0, 2.58, -0.02);
+            const hairBack = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.45, 0.2), hairMat);
+            hairBack.position.set(0, 2.38, -0.3);
 
-            // 3D Gun Mesh attached to Right Hand
+            [-0.15, 0.15].forEach(ex => {
+                const eyeWhite = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.11, 0.05), whiteMat);
+                eyeWhite.position.set(ex, 2.30, 0.33);
+                const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 0.06), shoeMat);
+                pupil.position.set(ex, 2.30, 0.34);
+                g.add(eyeWhite, pupil);
+            });
+
+            // Gövde, Yaka ve Kemer
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.96, 0.46), shirtMat);
+            torso.position.y = 1.42;
+            torso.castShadow = true;
+            const collar = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 0.48), whiteMat);
+            collar.position.set(0, 1.86, 0.01);
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.14, 0.48), shoeMat);
+            belt.position.y = 0.96;
+
+            // Kollar + Eller
+            const armL = new THREE.Group();
+            armL.position.set(-0.58, 1.75, 0);
+            const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.13, 0.68, 8), shirtMat);
+            sleeveL.position.y = -0.3;
+            const handL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), skinMat);
+            handL.position.y = -0.7;
+            armL.add(sleeveL, handL);
+
+            const armR = new THREE.Group();
+            armR.position.set(0.58, 1.75, 0);
+            const sleeveR = sleeveL.clone();
+            const handR = handL.clone();
+            armR.add(sleeveR, handR);
+
+            // Sağ Ele Bağlı 3B Silah Modeli
             const gunMesh = new THREE.Mesh(
-                new THREE.BoxGeometry(0.16, 0.22, 0.75),
-                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3 })
+                new THREE.BoxGeometry(0.15, 0.22, 0.78),
+                getSharedMaterial(null, 0x1e293b, 0.3, 0.8)
             );
-            gunMesh.position.set(0, -0.3, 0.42);
+            gunMesh.position.set(0, -0.68, 0.38);
             gunMesh.visible = false;
             armR.add(gunMesh);
 
-            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.9, 0.32), pantsMat);
-            legL.position.set(-0.22, 0.45, 0);
-            const legR = legL.clone();
-            legR.position.x = 0.22;
+            // Bacaklar + Ayakkabılar
+            const legL = new THREE.Group();
+            legL.position.set(-0.22, 0.92, 0);
+            const trouserL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.78, 8), pantsMat);
+            trouserL.position.y = -0.38;
+            const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.18, 0.46), shoeMat);
+            shoeL.position.set(0, -0.82, 0.06);
+            legL.add(trouserL, shoeL);
 
-            g.add(head, hair, torso, armL, armR, legL, legR);
+            const legR = new THREE.Group();
+            legR.position.set(0.22, 0.92, 0);
+            const trouserR = trouserL.clone();
+            const shoeR = shoeL.clone();
+            legR.add(trouserR, shoeR);
+
+            g.add(neck, head, hairTop, hairBack, torso, collar, belt, armL, armR, legL, legR);
             g.userData = { armL, armR, legL, legR, gunMesh, walkCycle: 0 };
             return g;
         }
@@ -5552,13 +5837,9 @@
                             z: Number(activePos.z.toFixed(2)),
                             angle: Number(activeAngle.toFixed(2)),
                             inVehicleUid: state.inVehicle ? state.inVehicle.uid : null,
+                            inVehicleSpec: state.inVehicle ? state.inVehicle.id : null,
                             isPassenger: !!state.isPassenger,
                             updatedAt: firebase.database.ServerValue.TIMESTAMP
-                        });
-
-                        // Kendi oyuncu verimize bindiğimiz aracın modelini (inVehicleSpec) de ekle ki karşı taraf anında oluşturabilsin
-                        db.ref(`rooms/${currentRoom}/players/${myPlayerId}`).update({
-                            inVehicleSpec: state.inVehicle ? state.inVehicle.id : null
                         });
 
                         // Eğer bir aracın SÜRÜCÜSÜ isek aracın güncel koordinatlarını odaya yayınla
@@ -5735,6 +6016,24 @@
                 );
                 if (!alreadyExists) {
                     placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true);
+                }
+            });
+
+            // D) Oda Sohbeti ve Para Hediyelerini Dinle (Oda değiştiğinde otomatik yeni odaya bağlanır)
+            roomRef.child('chat').off();
+            roomRef.child('chat').limitToLast(10).on('child_added', snap => {
+                const msg = snap.val();
+                if (msg) appendChatLine(msg.sender, msg.text);
+            });
+
+            roomRef.child('gifts').off();
+            roomRef.child('gifts').limitToLast(1).on('child_added', snap => {
+                const g = snap.val();
+                if (g && g.senderId !== myPlayerId && Date.now() - (g.time || 0) < 10000) {
+                    state.money += (g.amount || 100);
+                    updateHUD();
+                    playSfx('spawn');
+                    showToast(`💸 ${g.senderName} size +${g.amount} TL Hediye gönderdi!`, 'text-emerald-300');
                 }
             });
         }
@@ -6133,27 +6432,296 @@
         setTimeout(() => spawnAirdropEvent(), 25000);
         setInterval(() => spawnAirdropEvent(), 180000);
 
+        // ====================================================
+        // 👑 URAS'A ÖZEL 5 SÜRPRİZ PAKETİ (8 YAŞ ÖZEL)
+        // ====================================================
+        let urasPetDog = null;
+        const fireworksList = [];
+
+        // SÜRPRİZ 1: Karakterin Başına 3B Mücevherli Altın Kral Tacı ve Kahraman Pelerini Ekleme
+        function equipUrasCrownAndCape(humanMesh) {
+            if (humanMesh.userData.hasUrasCrown) return;
+            humanMesh.userData.hasUrasCrown = true;
+
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.9, roughness: 0.15, emissive: 0x854d0e, emissiveIntensity: 0.35 });
+            const rubyMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const emeraldMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+            // Altın Kral Tacı
+            const crownGroup = new THREE.Group();
+            const baseRing = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.38, 0.22, 12), goldMat);
+            crownGroup.add(baseRing);
+
+            for (let i = 0; i < 6; i++) {
+                const ang = (i * Math.PI) / 3;
+                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.26, 6), goldMat);
+                spike.position.set(Math.cos(ang) * 0.36, 0.2, Math.sin(ang) * 0.36);
+                const gem = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), i % 2 === 0 ? rubyMat : emeraldMat);
+                gem.position.set(Math.cos(ang) * 0.40, 0.0, Math.sin(ang) * 0.40);
+                crownGroup.add(spike, gem);
+            }
+            crownGroup.position.set(0, 2.76, 0);
+            humanMesh.add(crownGroup);
+
+            // Kırmızı Kral / Süper Kahraman Pelerini
+            const capeMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.6, side: THREE.DoubleSide });
+            const cape = new THREE.Mesh(new THREE.BoxGeometry(0.84, 1.35, 0.06), capeMat);
+            cape.position.set(0, 1.22, -0.28);
+            cape.rotation.x = 0.18;
+            humanMesh.add(cape);
+            humanMesh.userData.urasCape = cape;
+        }
+
+        // SÜRPRİZ 2: Uras'ın Sadık Köpeği "Bobi" (Peşinden Koşar ve Kuyruk Sallar)
+        function spawnUrasPetDog() {
+            if (urasPetDog) return;
+            const g = new THREE.Group();
+            const furMat = getSharedMaterial(null, 0xd97706, 0.7);
+            const whiteMat = getSharedMaterial(null, 0xfef3c7, 0.8);
+            const darkMat = getSharedMaterial(null, 0x0f172a, 0.3);
+            const collarMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.95), furMat);
+            body.position.y = 0.48;
+            body.castShadow = true;
+            const chest = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.36, 0.35), whiteMat);
+            chest.position.set(0, 0.46, 0.34);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.46, 0.48), furMat);
+            head.position.set(0, 0.82, 0.48);
+            const snout = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), whiteMat);
+            snout.position.set(0, 0.74, 0.78);
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), darkMat);
+            nose.position.set(0, 0.80, 0.93);
+            const collar = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.10, 0.52), collarMat);
+            collar.position.set(0, 0.62, 0.42);
+
+            [-0.14, 0.14].forEach(ex => {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), darkMat);
+                eye.position.set(ex, 0.88, 0.73);
+                const ear = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.26, 0.16), darkMat);
+                ear.position.set(ex * 1.8, 0.96, 0.42);
+                g.add(eye, ear);
+            });
+
+            const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.45, 6), furMat);
+            tail.position.set(0, 0.68, -0.52);
+            tail.rotation.x = -0.5;
+
+            const legs = [];
+            [[-0.18, 0.32], [0.18, 0.32], [-0.18, -0.32], [0.18, -0.32]].forEach(([lx, lz]) => {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.42, 8), whiteMat);
+                leg.position.set(lx, 0.21, lz);
+                legs.push(leg);
+                g.add(leg);
+            });
+
+            g.add(body, chest, head, snout, nose, collar, tail);
+
+            // Köpeğin Üstüne İsim Etiketi Ekle
+            const tag = createPlayerNameTagSprite('🐕 Bobi (Uras\'ın Dostu)', 'rgba(217, 119, 6, 0.9)', '#fde047');
+            tag.scale.set(2.8, 0.7, 1);
+            tag.position.set(0, 1.55, 0);
+            g.add(tag);
+
+            g.position.set(player.pos.x - 2.5, player.pos.y, player.pos.z + 1.5);
+            scene.add(g);
+
+            urasPetDog = {
+                mesh: g,
+                tail,
+                legs,
+                pos: g.position.clone(),
+                walkCycle: 0
+            };
+        }
+
+        // SÜRPRİZ 3: Altın Kaplama & Mavi Neonlu "URAS-GT (No: 8)" Özel Süper Spor Araba
+        function spawnUrasGoldenSupercar() {
+            const v = spawnVehicle('sport', 6.5, 10.5);
+            v.name = '👑 URAS-GT (8 Yaş Özel)';
+            v.hp = 500;
+            v.maxHp = 500;
+            v.spec = Object.assign({}, v.spec, { speed: 1.52, turn: 0.062 });
+
+            // 24 Ayar Parlak Altın Gövde Kaplaması
+            const goldCarMat = new THREE.MeshPhysicalMaterial({
+                color: 0xfacc15,
+                metalness: 0.85,
+                roughness: 0.12,
+                clearcoat: 1.0
+            });
+            if (v.mesh.children[0]) v.mesh.children[0].material = goldCarMat;
+            if (v.mesh.children[1]) v.mesh.children[1].material = goldCarMat;
+
+            // Altına Parlak Mavi Neon Işık Ekle
+            const neon = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.6, 6.4),
+                new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
+            );
+            neon.rotation.x = -Math.PI / 2;
+            neon.position.y = 0.14;
+            v.mesh.add(neon);
+
+            // Aracın Üstüne "👑 URAS-GT #8" Etiketi Ekle
+            const carTag = createPlayerNameTagSprite('🏎️ URAS-GT #8', 'rgba(234, 179, 8, 0.92)', '#ffffff');
+            carTag.scale.set(3.2, 0.8, 1);
+            carTag.position.set(0, 2.65, 0);
+            v.mesh.add(carTag);
+        }
+
+        // SÜRPRİZ 4: Şehir Meydanında Dönen Altın "Kurucu Uras Anıtı"
+        let urasMonumentCrystal = null;
+        function buildUrasFounderMonument() {
+            const g = new THREE.Group();
+            const stoneMat = getSharedMaterial('stone', 0x475569, 0.7);
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.9, roughness: 0.15, emissive: 0x713f12, emissiveIntensity: 0.3 });
+            const diamondMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.4, roughness: 0.1, emissive: 0x0284c7, emissiveIntensity: 0.6 });
+
+            const base1 = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.0, 0.5, 12), stoneMat);
+            base1.position.y = 0.25;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 2.8, 10), goldMat);
+            pillar.position.y = 1.9;
+            const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.15, 0), diamondMat);
+            crystal.position.y = 4.4;
+            urasMonumentCrystal = crystal;
+
+            const titleSprite = createPlayerNameTagSprite('🏆 KURUCU URAS (8)', 'rgba(15, 23, 42, 0.92)', '#facc15');
+            titleSprite.scale.set(4.5, 1.1, 1);
+            titleSprite.position.set(0, 6.2, 0);
+
+            g.add(base1, pillar, crystal, titleSprite);
+            g.position.set(0, 0, 5.5);
+            scene.add(g);
+        }
+
+        // SÜRPRİZ 5: Havai Fişek Gösterisi & Kral Uras Hediye Yağmuru ([K] Tuşu veya Üst Buton)
+        function triggerUrasRoyalSurprise() {
+            // Karakterimize Kral Tacı ve Pelerini Giydir
+            equipUrasCrownAndCape(player.mesh);
+            if (!urasPetDog) spawnUrasPetDog();
+
+            // +800 TL Uras Harçlığı Ver
+            state.money += 800;
+            state.health = state.maxHealth;
+            updateHUD();
+            playSfx('spawn');
+
+            // Gökyüzünde 5 Adet Rengarenk Havai Fişek Patlat!
+            const pPos = state.inVehicle ? state.inVehicle.pos : player.pos;
+            const fwColors = [0xfacc15, 0x38bdf8, 0xec4899, 0x22c55e, 0xa855f7];
+            for (let f = 0; f < 5; f++) {
+                setTimeout(() => {
+                    const fx = pPos.x + (Math.random() - 0.5) * 26;
+                    const fz = pPos.z + (Math.random() - 0.5) * 26;
+                    const fy = pPos.y + 14 + Math.random() * 8;
+                    const col = fwColors[f % fwColors.length];
+                    const pGroup = new THREE.Group();
+                    pGroup.position.set(fx, fy, fz);
+
+                    const sparks = [];
+                    const mat = new THREE.MeshBasicMaterial({ color: col });
+                    for (let s = 0; s < 28; s++) {
+                        const sp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 6), mat);
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        const spd = 0.25 + Math.random() * 0.35;
+                        sparks.push({
+                            mesh: sp,
+                            vx: Math.sin(phi) * Math.cos(theta) * spd,
+                            vy: Math.cos(phi) * spd,
+                            vz: Math.sin(phi) * Math.sin(theta) * spd
+                        });
+                        pGroup.add(sp);
+                    }
+                    scene.add(pGroup);
+                    fireworksList.push({ group: pGroup, sparks, life: 45 });
+                    playSfx('place');
+                }, f * 260);
+            }
+
+            showToast('👑 YAŞASIN KRAL URAS! Altın Taç & Pelerin giyildi, Havai Fişekler patladı ve +800 TL Harçlık eklendi!', 'text-amber-300');
+        }
+
+        // [K] Tuşu ile Uras Sürprizini Başlatma
+        window.addEventListener('keydown', e => {
+            if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+            if (e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                triggerUrasRoyalSurprise();
+            }
+        });
+
+        // Köpek Dostu Bobi, Anıt Kristali ve Havai Fişek Animasyon Döngüsü
+        setInterval(() => {
+            // Anıt kristalini döndür
+            if (urasMonumentCrystal) {
+                urasMonumentCrystal.rotation.y += 0.05;
+                urasMonumentCrystal.position.y = 4.4 + Math.sin(Date.now() * 0.004) * 0.25;
+            }
+
+            // Eğer oyuncunun adı "Uras" içeriyorsa otomatik Kral Tacı tak
+            if (myNickname && myNickname.toLowerCase().includes('uras') && !player.mesh.userData.hasUrasCrown) {
+                equipUrasCrownAndCape(player.mesh);
+            }
+
+            // Uras'ın köpeği Bobi oyuncuyu takip etsin ve kuyruk sallasın
+            if (urasPetDog) {
+                const targetPos = state.inVehicle ? state.inVehicle.pos : player.pos;
+                const dx = targetPos.x - urasPetDog.pos.x;
+                const dz = targetPos.z - urasPetDog.pos.z;
+                const dist = Math.hypot(dx, dz);
+                urasPetDog.tail.rotation.z = Math.sin(Date.now() * 0.018) * 0.45;
+
+                if (dist > 3.2) {
+                    const ang = Math.atan2(dx, dz);
+                    urasPetDog.mesh.rotation.y = ang;
+                    const step = Math.min(0.42, (dist - 2.6) * 0.14);
+                    urasPetDog.pos.x += Math.sin(ang) * step;
+                    urasPetDog.pos.z += Math.cos(ang) * step;
+                    urasPetDog.pos.y = getSurfaceHeight(urasPetDog.pos.x, urasPetDog.pos.z, urasPetDog.pos.y);
+                    urasPetDog.mesh.position.copy(urasPetDog.pos);
+
+                    urasPetDog.walkCycle += 0.35;
+                    urasPetDog.legs.forEach((leg, idx) => {
+                        leg.rotation.x = Math.sin(urasPetDog.walkCycle + (idx % 2) * Math.PI) * 0.55;
+                    });
+                }
+            }
+
+            // Havai fişek parçacıklarını hareket ettir
+            for (let i = fireworksList.length - 1; i >= 0; i--) {
+                const fw = fireworksList[i];
+                fw.life -= 1;
+                fw.sparks.forEach(s => {
+                    s.mesh.position.x += s.vx;
+                    s.mesh.position.y += s.vy;
+                    s.mesh.position.z += s.vz;
+                    s.vy -= 0.012; // Yerçekimi
+                });
+                if (fw.life <= 0) {
+                    scene.remove(fw.group);
+                    fireworksList.splice(i, 1);
+                }
+            }
+        }, 25);
+
         window.onload = function () {
+            // Eğer daha önce isim girilmediyse varsayılan ismi "Kral_Uras" yap
+            if (!localStorage.getItem('cw_nick')) {
+                myNickname = 'Kral_Uras';
+                localStorage.setItem('cw_nick', myNickname);
+                setHumanNameTag(player.mesh, myNickname, true);
+            }
             initStarterWorld();
+            equipUrasCrownAndCape(player.mesh);
+            spawnUrasPetDog();
+            spawnUrasGoldenSupercar();
+            buildUrasFounderMonument();
             isGeneratingStarterWorld = false;
             initFirebaseMultiplayer();
-            if (db) {
-                db.ref(`rooms/${currentRoom}/chat`).limitToLast(10).on('child_added', snap => {
-                    const msg = snap.val();
-                    if (msg) appendChatLine(msg.sender, msg.text);
-                });
-                db.ref(`rooms/${currentRoom}/gifts`).limitToLast(1).on('child_added', snap => {
-                    const g = snap.val();
-                    if (g && g.senderId !== myPlayerId && Date.now() - (g.time || 0) < 10000) {
-                        state.money += (g.amount || 100);
-                        updateHUD();
-                        playSfx('spawn');
-                        showToast(`💸 ${g.senderName} size +${g.amount} TL Hediye gönderdi!`, 'text-emerald-300');
-                    }
-                });
-            }
             animate();
         };
+
     </script>
 </body>
 </html>
