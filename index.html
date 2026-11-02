@@ -177,7 +177,16 @@
                     <i class="fas fa-save"></i> Kaydet/Işınlan
                 </button>
                 <button onclick="openMultiplayerModal()" class="ergo-btn bg-cyan-600/95 text-white font-black py-1 px-2.5 rounded-xl border border-cyan-300 shadow text-[11px] flex items-center gap-1">
-                <i class="fas fa-users"></i> Online Oda (<span id="online-count">1</span>)
+                    <i class="fas fa-users"></i> Online Oda (<span id="online-count">1</span>)
+                </button>
+                <button onclick="toggleChatPanel()" class="ergo-btn bg-teal-600/95 text-white font-black py-1 px-2.5 rounded-xl border border-teal-300 shadow text-[11px] flex items-center gap-1">
+                    <i class="fas fa-comments"></i> Sohbet & Emoji
+                </button>
+                <button onclick="startOrCancelVehicleJob()" id="btn-vehicle-job" class="hidden ergo-btn bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border border-white shadow text-[11px] items-center gap-1 animate-bounce">
+                    <i class="fas fa-briefcase"></i> <span id="vehicle-job-btn-label">Meslek Başlat [J]</span>
+                </button>
+                <button onclick="openTuningModal()" id="btn-vehicle-tune" class="hidden ergo-btn bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-black py-1 px-2.5 rounded-xl border border-fuchsia-300 shadow text-[11px] items-center gap-1">
+                    <i class="fas fa-wand-magic-sparkles"></i> Modifiye & Neon [U]
                 </button>
 
                 <!-- Inline Compact Color Picker -->
@@ -407,6 +416,86 @@
         </div>
     </div>
 
+    <!-- ACTIVE VEHICLE JOB & AIRDROP TRACKER BANNER -->
+    <div id="job-hud-banner" class="hidden fixed top-24 left-3 glass-panel px-3.5 py-2 rounded-2xl z-20 border-2 border-amber-400 shadow-2xl max-w-[270px] pointer-events-auto">
+        <div class="text-[10px] font-black uppercase text-amber-300 flex items-center justify-between">
+            <span id="job-hud-title">🚕 TAKSİ GÖREVİ</span>
+            <span id="job-hud-reward" class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded">+450 TL</span>
+        </div>
+        <div id="job-hud-desc" class="text-[11px] font-bold text-white mt-0.5">Müşteriyi yeşil halkadan alın!</div>
+        <div id="job-hud-dist" class="text-[10px] text-sky-300 font-extrabold mt-0.5">Mesafe: 0m</div>
+    </div>
+
+    <!-- ONLINE LIVE CHAT, QUICK EMOJI & MONEY TRANSFER PANEL -->
+    <div id="chat-panel" class="hidden fixed bottom-36 left-3 w-72 glass-panel rounded-2xl border border-teal-400/50 shadow-2xl z-30 flex flex-col overflow-hidden pointer-events-auto">
+        <div class="px-3 py-1.5 bg-slate-900/90 border-b border-slate-700 flex justify-between items-center">
+            <span class="text-[11px] font-black text-teal-300 flex items-center gap-1"><i class="fas fa-comments"></i> ODA SOHBETİ & EMOJİ</span>
+            <button onclick="toggleChatPanel()" class="text-slate-400 hover:text-white text-xs font-bold">✕</button>
+        </div>
+        <div id="chat-messages" class="p-2.5 h-36 overflow-y-auto custom-scroll space-y-1.5 text-[11px]">
+            <div class="text-slate-400 italic text-[10px]">Oda sohbetine hoş geldiniz!</div>
+        </div>
+        <!-- Quick Emoji Bar -->
+        <div class="px-2 py-1 bg-slate-900/60 border-t border-slate-800 flex justify-around text-sm">
+            <button onclick="sendQuickEmoji('👋 Selam!')" class="ergo-btn hover:scale-125">👋</button>
+            <button onclick="sendQuickEmoji('🚨 Yardım Et!')" class="ergo-btn hover:scale-125">🚨</button>
+            <button onclick="sendQuickEmoji('🏁 Yarışalım!')" class="ergo-btn hover:scale-125">🏁</button>
+            <button onclick="sendQuickEmoji('💰 Para Lazım!')" class="ergo-btn hover:scale-125">💰</button>
+            <button onclick="sendQuickEmoji('😎 Harika!')" class="ergo-btn hover:scale-125">😎</button>
+            <button onclick="sendGiftMoneyToRoom()" class="ergo-btn bg-emerald-700 text-white text-[9px] font-black px-1.5 py-0.5 rounded-lg" title="Odadaki Arkadaşına 100 TL Gönder">💸+100₺</button>
+        </div>
+        <div class="p-1.5 bg-slate-950 flex gap-1">
+            <input id="chat-input" type="text" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs text-white" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="ergo-btn bg-teal-600 text-white font-black px-3 rounded-xl text-xs">Gönder</button>
+        </div>
+    </div>
+
+    <!-- MODAL 8: VEHICLE TUNING, TURBO & NEON GARAGE -->
+    <div id="tuning-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl border border-fuchsia-400/50 shadow-2xl p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h2 class="text-lg font-black text-fuchsia-400 flex items-center gap-2"><i class="fas fa-wand-magic-sparkles"></i> ARAÇ MODİFİYE & NEON ATÖLYESİ</h2>
+                <button onclick="openTuningModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-white font-bold">✕</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-700 flex justify-between items-center">
+                    <div>
+                        <div class="font-black text-white text-sm">🚀 Turbo Motor Yükseltmesi</div>
+                        <div class="text-slate-400 text-[11px]">Aracın maksimum hızını +%30 artırır</div>
+                    </div>
+                    <button onclick="applyVehicleUpgrade('turbo')" class="ergo-btn bg-amber-500 text-slate-950 font-black px-3 py-2 rounded-xl">300 TL</button>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-700 flex justify-between items-center">
+                    <div>
+                        <div class="font-black text-white text-sm">🛡️ Çelik Zırh Kaplama</div>
+                        <div class="text-slate-400 text-[11px]">Araç maksimum canını +150 HP artırır ve tamir eder</div>
+                    </div>
+                    <button onclick="applyVehicleUpgrade('armor')" class="ergo-btn bg-sky-500 text-slate-950 font-black px-3 py-2 rounded-xl">250 TL</button>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-700 space-y-2">
+                    <div class="font-black text-white text-sm">🌈 Alt Neon Işık Paketi (150 TL)</div>
+                    <div class="flex gap-2 justify-between">
+                        <button onclick="applyVehicleNeon(0x00ffff)" class="ergo-btn flex-1 py-2 rounded-xl bg-cyan-500 text-slate-950 font-black">Mavi</button>
+                        <button onclick="applyVehicleNeon(0xff00ff)" class="ergo-btn flex-1 py-2 rounded-xl bg-fuchsia-500 text-white font-black">Pembe</button>
+                        <button onclick="applyVehicleNeon(0x22c55e)" class="ergo-btn flex-1 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black">Yeşil</button>
+                        <button onclick="applyVehicleNeon(0xfacc15)" class="ergo-btn flex-1 py-2 rounded-xl bg-amber-400 text-slate-950 font-black">Altın</button>
+                    </div>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-700 space-y-2">
+                    <div class="font-black text-white text-sm">🎨 Özel Metalik Gövde Boyası (100 TL)</div>
+                    <div class="flex gap-2 justify-between">
+                        <button onclick="applyVehiclePaint(0xef4444)" class="w-8 h-8 rounded-full bg-red-500 border-2 border-white"></button>
+                        <button onclick="applyVehiclePaint(0x3b82f6)" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white"></button>
+                        <button onclick="applyVehiclePaint(0x10b981)" class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white"></button>
+                        <button onclick="applyVehiclePaint(0xf59e0b)" class="w-8 h-8 rounded-full bg-amber-500 border-2 border-white"></button>
+                        <button onclick="applyVehiclePaint(0x9333ea)" class="w-8 h-8 rounded-full bg-purple-600 border-2 border-white"></button>
+                        <button onclick="applyVehiclePaint(0x111827)" class="w-8 h-8 rounded-full bg-slate-950 border-2 border-white"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL 4: WEAPON SHOP (SİLAH MARKETİ) -->
     <div id="weapon-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-2xl rounded-3xl border border-rose-400/50 shadow-2xl flex flex-col max-h-[86vh] overflow-hidden">
@@ -549,7 +638,14 @@
             { id: 'prefab_port', name: 'Hazır Liman Binası', icon: '⚓', price: 1250, category: '5. Hazır Şehir & Köy Binaları', desc: 'Deniz fenerli, vinçli deniz ticaret ve liman yönetim binası' },
             { id: 'prefab_airport', name: 'Hazır Havaalanı Binası', icon: '✈️', price: 1600, category: '5. Hazır Şehir & Köy Binaları', desc: 'Radarlı kontrol kulesi ve geniş camlı havalimanı terminali' },
             { id: 'prefab_mechanic', name: 'Hazır Oto Tamircisi', icon: '🔧', price: 900, category: '5. Hazır Şehir & Köy Binaları', desc: 'Önündeki sarı halkada araçları %50 indirimli tamir eder ve güçlendirir!' },
-            { id: 'prefab_fenced_yard', name: 'Hazır Çitli Bahçe', icon: '🌳', price: 350, category: '5. Hazır Şehir & Köy Binaları', desc: 'Kenarları tam birleşen çit kapılı, kuyulu ve banklı avlu' }
+            { id: 'prefab_bank', name: 'Merkez Bankası', icon: '🏦', price: 1500, category: '5. Hazır Şehir & Köy Binaları', desc: 'Her 15 saniyede +95 TL Faiz/Finans geliri sağlar veya soyulabilir!' },
+            { id: 'prefab_fenced_yard', name: 'Hazır Çitli Bahçe', icon: '🌳', price: 350, category: '5. Hazır Şehir & Köy Binaları', desc: 'Kenarları tam birleşen çit kapılı, kuyulu ve banklı avlu' },
+
+            // 6. Ev İçi Mobilyalar & Otomatik Gelir Üreticiler (Tycoon)
+            { id: 'furniture_bed', name: 'Konforlu Yatak', icon: '🛏️', price: 65, category: '6. Mobilya & Otomasyon', desc: 'Ev içine kurulur, canınızı yeniler ve dekorasyon sağlar' },
+            { id: 'furniture_sofa', name: 'Lüks Koltuk & TV', icon: '🛋️', price: 85, category: '6. Mobilya & Otomasyon', desc: 'Ev ve villalar için televizyon üniteli salon koltuk takımı' },
+            { id: 'crop_field', name: 'Buğday Tarlası', icon: '🌾', price: 180, category: '6. Mobilya & Otomasyon', desc: 'Otomatik çiftlik! Her 15 saniyede +20 TL tarım geliri kazandırır' },
+            { id: 'auto_miner', name: 'Otomatik Maden Kulesi', icon: '⚙️', price: 450, category: '6. Mobilya & Otomasyon', desc: 'Siz gezerken kendi kendine kazı yapar, her 15sn +50 TL kazandırır!' }
         ];
 
         // ====================================================
@@ -1670,7 +1766,7 @@
         }
 
         function getCityStats() {
-            let maxPop = 12; // Base population
+            let maxPop = 12;
             let passiveIncome = 0;
             functionalBuildings.forEach(b => {
                 if (b.type === 'prefab_school' || b.type === 'prefab_firestation') maxPop += 6;
@@ -1682,7 +1778,13 @@
                 else if (b.type === 'prefab_port') { maxPop += 4; passiveIncome += 55; }
                 else if (b.type === 'prefab_airport') { maxPop += 6; passiveIncome += 75; }
                 else if (b.type === 'prefab_mechanic') { maxPop += 3; passiveIncome += 35; }
+                else if (b.type === 'prefab_bank') { maxPop += 5; passiveIncome += 95; }
                 else if (b.type === 'prefab_fenced_yard') { maxPop += 2; }
+            });
+            placedStructures.forEach(s => {
+                if (s.type === 'crop_field') passiveIncome += 20;
+                else if (s.type === 'auto_miner') passiveIncome += 50;
+                else if (s.type === 'furniture_bed') maxPop += 1;
             });
             return { maxPop, passiveIncome };
         }
@@ -2728,6 +2830,46 @@
                     group.add(leg);
                 });
                 group.add(seat, back);
+            } else if (itemId === 'furniture_bed') {
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.45, 3.0), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                frame.position.y = 0.22;
+                const mattress = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.35, 2.7), new THREE.MeshStandardMaterial({ color: 0xe11d48 }));
+                mattress.position.y = 0.55;
+                const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.22, 0.65), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+                pillow.position.set(0, 0.78, -0.9);
+                group.add(frame, mattress, pillow);
+            } else if (itemId === 'furniture_sofa') {
+                const sofaMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x0284c7, roughness: 0.6 });
+                const seat = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.45, 1.1), sofaMat);
+                seat.position.set(0, 0.35, -0.8);
+                const back = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.95, 0.3), sofaMat);
+                back.position.set(0, 0.75, -1.25);
+                const tvStand = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+                tvStand.position.set(0, 0.25, 1.2);
+                const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.05, 0.12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                tvScreen.position.set(0, 1.05, 1.2);
+                group.add(seat, back, tvStand, tvScreen);
+            } else if (itemId === 'crop_field') {
+                const soil = new THREE.Mesh(new THREE.BoxGeometry(GRID - 0.2, 0.2, GRID - 0.2), new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.95 }));
+                soil.position.y = 0.1;
+                group.add(soil);
+                const wheatMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.7 });
+                for (let wx = -1.2; wx <= 1.2; wx += 0.8) {
+                    for (let wz = -1.2; wz <= 1.2; wz += 0.8) {
+                        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.1, 6), wheatMat);
+                        stalk.position.set(wx, 0.65, wz);
+                        group.add(stalk);
+                    }
+                }
+            } else if (itemId === 'auto_miner') {
+                const base = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.5, 2.8), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6 }));
+                base.position.y = 0.25;
+                const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.85, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5 }));
+                tower.position.y = 2.0;
+                const drill = new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.6, 8), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 }));
+                drill.rotation.x = Math.PI;
+                drill.position.y = 1.1;
+                group.add(base, tower, drill);
             } else if (itemId.startsWith('prefab_')) {
                 const previewBox = new THREE.Mesh(
                     new THREE.BoxGeometry(GRID * 3, GRID * 2, GRID * 3),
@@ -5517,10 +5659,362 @@
             });
         }
 
+        // ====================================================
+        // 1. DYNAMIC VEHICLE MISSIONS (TAXI, AMBULANCE, FIRE, CARGO, TOW)
+        // ====================================================
+        let activeVehicleJob = null;
+        let jobMarkerMesh = null;
+
+        const JOB_LOCATIONS = [
+            { name: 'Şehir Hastanesi Önü', x: 60, z: -4 },
+            { name: 'Polis Merkezi Önü', x: 28, z: -4 },
+            { name: 'İlkokul Meydanı', x: 96, z: -4 },
+            { name: 'Doğu Limanı Girişi', x: 182, z: 0 },
+            { name: 'Havalimanı Terminali', x: 20, z: -68 },
+            { name: 'Açık Otopark Meydanı', x: -16, z: 6 }
+        ];
+
+        function createJobBeaconMesh(colorHex = 0x22c55e) {
+            const g = new THREE.Group();
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(2.2, 3.2, 24),
+                new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.15;
+            const beam = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.8, 1.8, 18, 16, 1, true),
+                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
+            );
+            beam.position.y = 9.0;
+            g.add(ring, beam);
+            return g;
+        }
+
+        function startOrCancelVehicleJob() {
+            if (!state.inVehicle) {
+                showToast('⚠️ Meslek görevi için önce bir araca binmelisiniz!', 'text-rose-400');
+                return;
+            }
+            if (activeVehicleJob) {
+                if (jobMarkerMesh) scene.remove(jobMarkerMesh);
+                jobMarkerMesh = null;
+                activeVehicleJob = null;
+                document.getElementById('job-hud-banner').classList.add('hidden');
+                document.getElementById('vehicle-job-btn-label').innerText = 'Meslek Başlat [J]';
+                showToast('⏹️ Araç meslek görevi iptal edildi.', 'text-slate-300');
+                return;
+            }
+
+            const vId = state.inVehicle.id;
+            const pickup = JOB_LOCATIONS[Math.floor(Math.random() * JOB_LOCATIONS.length)];
+            let dropoff = JOB_LOCATIONS[Math.floor(Math.random() * JOB_LOCATIONS.length)];
+            if (dropoff === pickup) dropoff = JOB_LOCATIONS[(JOB_LOCATIONS.indexOf(pickup) + 1) % JOB_LOCATIONS.length];
+
+            let title = '🚕 TAKSİ & YOLCU GÖREVİ';
+            let reward = 450;
+            let step1Desc = `📍 ${pickup.name} noktasından yolcuyu alın!`;
+            let step2Desc = `🏁 Yolcuyu ${dropoff.name} noktasına bırakın!`;
+
+            if (vId === 'ambulance') {
+                title = '🚑 ACİL AMBULANS GÖREVİ';
+                reward = 650;
+                step1Desc = `🚨 ${pickup.name} noktasındaki yaralı vatandaşı alın!`;
+                step2Desc = `🏥 Yaralıyı acilen Şehir Hastanesine (60, -4) yetiştirin!`;
+                dropoff = { name: 'Şehir Hastanesi Acil', x: 60, z: -4 };
+            } else if (vId === 'firetruck') {
+                title = '🚒 İTFAİYE YANGIN GÖREVİ';
+                reward = 700;
+                step1Desc = `🔥 ${pickup.name} bölgesindeki yangına müdahale edin!`;
+                step2Desc = `🚒 İtfaiye İstasyonuna geri dönüp su tankını doldurun!`;
+                dropoff = { name: 'İtfaiye İstasyonu', x: 128, z: -4 };
+            } else if (['semi', 'truck', 'pickup', 'cargo_ship', 'tow'].includes(vId)) {
+                title = '🚛 LOJİSTİK & KARGO TAŞIMA';
+                reward = 850;
+                step1Desc = `📦 ${pickup.name} noktasından ticari konteyneri yükleyin!`;
+                step2Desc = `⚓ Yükü ${dropoff.name} noktasına teslim edin!`;
+            }
+
+            activeVehicleJob = {
+                stage: 1,
+                title,
+                reward,
+                pickup,
+                dropoff,
+                step1Desc,
+                step2Desc,
+                targetX: pickup.x,
+                targetZ: pickup.z
+            };
+
+            if (jobMarkerMesh) scene.remove(jobMarkerMesh);
+            jobMarkerMesh = createJobBeaconMesh(0x22c55e);
+            jobMarkerMesh.position.set(pickup.x, Math.max(0, getNaturalTerrainHeight(pickup.x, pickup.z)), pickup.z);
+            scene.add(jobMarkerMesh);
+
+            document.getElementById('job-hud-banner').classList.remove('hidden');
+            document.getElementById('job-hud-title').innerText = title;
+            document.getElementById('job-hud-reward').innerText = `+${reward} TL`;
+            document.getElementById('job-hud-desc').innerText = step1Desc;
+            document.getElementById('vehicle-job-btn-label').innerText = 'Görevi İptal Et [J]';
+            playSfx('spawn');
+            showToast(`${title} Başladı! Yeşil ışık sütununa gidin.`, 'text-amber-300');
+        }
+
+        // ====================================================
+        // 2. VEHICLE TUNING, TURBO & NEON UNDERGLOW
+        // ====================================================
+        function openTuningModal() {
+            if (!state.inVehicle) {
+                showToast('⚠️ Modifiye yapmak için önce bir araca binmelisiniz!', 'text-rose-400');
+                return;
+            }
+            document.getElementById('tuning-modal').classList.toggle('hidden');
+        }
+
+        function applyVehicleUpgrade(type) {
+            const v = state.inVehicle;
+            if (!v) return;
+            if (type === 'turbo') {
+                if (state.money < 300) { showToast('⚠️ Turbo için 300 TL gerekli!', 'text-rose-400'); return; }
+                state.money -= 300;
+                v.spec = Object.assign({}, v.spec, { speed: v.spec.speed * 1.3 });
+                updateHUD();
+                playSfx('spawn');
+                showToast(`🚀 ${v.name} Turbo Motor takıldı! (+%30 Maksimum Hız)`, 'text-amber-300');
+            } else if (type === 'armor') {
+                if (state.money < 250) { showToast('⚠️ Zırh için 250 TL gerekli!', 'text-rose-400'); return; }
+                state.money -= 250;
+                v.maxHp += 150;
+                v.hp = v.maxHp;
+                v.broken = false;
+                if (v.smokeGroup) v.smokeGroup.visible = false;
+                updateHUD();
+                playSfx('spawn');
+                showToast(`🛡️ ${v.name} Çelik Zırh kaplandı! (${v.maxHp} HP)`, 'text-sky-300');
+            }
+        }
+
+        function applyVehicleNeon(colorHex) {
+            const v = state.inVehicle;
+            if (!v) return;
+            if (state.money < 150) { showToast('⚠️ Neon ışık için 150 TL gerekli!', 'text-rose-400'); return; }
+            state.money -= 150;
+            if (v.mesh.userData.neonMesh) v.mesh.remove(v.mesh.userData.neonMesh);
+            const neon = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.4, 6.2),
+                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false })
+            );
+            neon.rotation.x = -Math.PI / 2;
+            neon.position.y = 0.14;
+            v.mesh.add(neon);
+            v.mesh.userData.neonMesh = neon;
+            updateHUD();
+            playSfx('spawn');
+            showToast(`🌈 ${v.name} altına Neon Işık takıldı!`, 'text-fuchsia-300');
+        }
+
+        function applyVehiclePaint(colorHex) {
+            const v = state.inVehicle;
+            if (!v) return;
+            if (state.money < 100) { showToast('⚠️ Boya için 100 TL gerekli!', 'text-rose-400'); return; }
+            state.money -= 100;
+            if (v.mesh.children[0] && v.mesh.children[0].material) {
+                v.mesh.children[0].material = v.mesh.children[0].material.clone();
+                v.mesh.children[0].material.color.setHex(colorHex);
+            }
+            updateHUD();
+            playSfx('place');
+            showToast(`🎨 ${v.name} yeni metalik renge boyandı!`, 'text-emerald-300');
+        }
+
+        // ====================================================
+        // 3. PARACHUTE AIRDROP TREASURE CRATE EVENT
+        // ====================================================
+        let activeAirdrop = null;
+
+        function spawnAirdropEvent() {
+            if (activeAirdrop) scene.remove(activeAirdrop.mesh);
+            const ax = -90 + Math.random() * 240;
+            const az = -90 + Math.random() * 160;
+            const groundY = Math.max(0, getNaturalTerrainHeight(ax, az));
+
+            const group = new THREE.Group();
+            const crate = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.3 }));
+            crate.position.y = 1.2;
+            const goldBand = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.4, 2.5), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            goldBand.position.y = 1.2;
+            const chute = new THREE.Mesh(new THREE.SphereGeometry(3.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xef4444, side: THREE.DoubleSide }));
+            chute.position.y = 6.5;
+            const beacon = createJobBeaconMesh(0xfacc15);
+            group.add(crate, goldBand, chute, beacon);
+            group.position.set(ax, groundY + 45, az);
+            scene.add(group);
+
+            activeAirdrop = {
+                mesh: group,
+                chute,
+                pos: new THREE.Vector3(ax, groundY + 45, az),
+                groundY,
+                reward: 1500
+            };
+            showToast(`🪂 GÖKYÜZÜNDEN HAZİNE PAKETİ (AIRDROP) DÜŞÜYOR! Konum: (${Math.round(ax)}, ${Math.round(az)}) - Ödül: +1500 TL!`, 'text-amber-300');
+        }
+
+        // ====================================================
+        // 4. ONLINE LIVE CHAT, EMOJIS & MONEY TRANSFER
+        // ====================================================
+        function toggleChatPanel() {
+            document.getElementById('chat-panel').classList.toggle('hidden');
+        }
+
+        function sendChatMessage(customText = null) {
+            const input = document.getElementById('chat-input');
+            const text = (customText || (input ? input.value : '')).trim();
+            if (!text) return;
+            if (!customText && input) input.value = '';
+
+            setHumanNameTag(player.mesh, `${myNickname}: ${text.substring(0, 14)}`, true);
+            setTimeout(() => setHumanNameTag(player.mesh, myNickname, true), 5000);
+
+            if (db) {
+                db.ref(`rooms/${currentRoom}/chat`).push({
+                    sender: myNickname,
+                    text: text.substring(0, 80),
+                    time: Date.now()
+                });
+            } else {
+                appendChatLine(myNickname, text);
+            }
+        }
+
+        function sendQuickEmoji(emojiText) {
+            sendChatMessage(emojiText);
+            showToast(`💬 ${myNickname}: ${emojiText}`, 'text-teal-300');
+        }
+
+        function sendGiftMoneyToRoom() {
+            if (state.money < 100) {
+                showToast('⚠️ Arkadaşınıza göndermek için en az 100 TL paranız olmalı!', 'text-rose-400');
+                return;
+            }
+            state.money -= 100;
+            updateHUD();
+            if (db) {
+                db.ref(`rooms/${currentRoom}/gifts`).push({
+                    senderId: myPlayerId,
+                    senderName: myNickname,
+                    amount: 100,
+                    time: Date.now()
+                });
+            }
+            sendChatMessage('💸 Odadaki arkadaşlara +100 TL Hediye gönderdi!');
+        }
+
+        function appendChatLine(sender, text) {
+            const box = document.getElementById('chat-messages');
+            if (!box) return;
+            const row = document.createElement('div');
+            row.className = 'bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-800';
+            row.innerHTML = `<b class="text-teal-300">${sender}:</b> <span class="text-white">${text}</span>`;
+            box.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // Keyboard shortcuts [J] for Vehicle Mission & [U] for Tuning
+        window.addEventListener('keydown', e => {
+            if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'j') startOrCancelVehicleJob();
+            if (k === 'u') openTuningModal();
+        });
+
+        // Periodic tick for Vehicle Jobs, Airdrops & HUD buttons
+        setInterval(() => {
+            const jobBtn = document.getElementById('btn-vehicle-job');
+            const tuneBtn = document.getElementById('btn-vehicle-tune');
+            if (jobBtn && tuneBtn) {
+                const inV = !!state.inVehicle;
+                jobBtn.classList.toggle('hidden', !inV);
+                jobBtn.classList.toggle('flex', inV);
+                tuneBtn.classList.toggle('hidden', !inV);
+                tuneBtn.classList.toggle('flex', inV);
+            }
+
+            if (activeVehicleJob && state.inVehicle) {
+                const vPos = state.inVehicle.pos;
+                const d = Math.hypot(vPos.x - activeVehicleJob.targetX, vPos.z - activeVehicleJob.targetZ);
+                document.getElementById('job-hud-dist').innerText = `Hedefe Mesafe: ${Math.round(d)}m`;
+                if (d < 8.5) {
+                    if (activeVehicleJob.stage === 1) {
+                        activeVehicleJob.stage = 2;
+                        activeVehicleJob.targetX = activeVehicleJob.dropoff.x;
+                        activeVehicleJob.targetZ = activeVehicleJob.dropoff.z;
+                        document.getElementById('job-hud-desc').innerText = activeVehicleJob.step2Desc;
+                        if (jobMarkerMesh) {
+                            scene.remove(jobMarkerMesh);
+                            jobMarkerMesh = createJobBeaconMesh(0xfacc15);
+                            jobMarkerMesh.position.set(activeVehicleJob.targetX, Math.max(0, getNaturalTerrainHeight(activeVehicleJob.targetX, activeVehicleJob.targetZ)), activeVehicleJob.targetZ);
+                            scene.add(jobMarkerMesh);
+                        }
+                        playSfx('place');
+                        showToast('✅ İlk aşama tamam! Şimdi sarı teslimat noktasına gidin!', 'text-amber-300');
+                    } else {
+                        state.money += activeVehicleJob.reward;
+                        updateHUD();
+                        playSfx('spawn');
+                        showToast(`🏆 GÖREV TAMAMLANDI! +${activeVehicleJob.reward} TL Kazandınız!`, 'text-emerald-300');
+                        if (jobMarkerMesh) scene.remove(jobMarkerMesh);
+                        jobMarkerMesh = null;
+                        activeVehicleJob = null;
+                        document.getElementById('job-hud-banner').classList.add('hidden');
+                        document.getElementById('vehicle-job-btn-label').innerText = 'Meslek Başlat [J]';
+                    }
+                }
+            }
+
+            if (activeAirdrop) {
+                if (activeAirdrop.pos.y > activeAirdrop.groundY) {
+                    activeAirdrop.pos.y = Math.max(activeAirdrop.groundY, activeAirdrop.pos.y - 0.35);
+                    activeAirdrop.mesh.position.y = activeAirdrop.pos.y;
+                } else if (activeAirdrop.chute.visible) {
+                    activeAirdrop.chute.visible = false;
+                }
+                const pPos = state.inVehicle ? state.inVehicle.pos : player.pos;
+                if (Math.hypot(pPos.x - activeAirdrop.pos.x, pPos.z - activeAirdrop.pos.z) < 5.5) {
+                    state.money += activeAirdrop.reward;
+                    updateHUD();
+                    playSfx('spawn');
+                    showToast(`🎁 AIRDROP HAZİNESİNİ BULDUNUZ! +${activeAirdrop.reward} TL Kazandınız!`, 'text-amber-300');
+                    scene.remove(activeAirdrop.mesh);
+                    activeAirdrop = null;
+                }
+            }
+        }, 100);
+
+        // Spawn an Airdrop every 3 minutes (first one 25 seconds after game starts)
+        setTimeout(() => spawnAirdropEvent(), 25000);
+        setInterval(() => spawnAirdropEvent(), 180000);
+
         window.onload = function () {
             initStarterWorld();
-            isGeneratingStarterWorld = false; // Başlangıç şehri bitti, artık yapılan inşaatlar Firebase'e gidebilir!
+            isGeneratingStarterWorld = false;
             initFirebaseMultiplayer();
+            if (db) {
+                db.ref(`rooms/${currentRoom}/chat`).limitToLast(10).on('child_added', snap => {
+                    const msg = snap.val();
+                    if (msg) appendChatLine(msg.sender, msg.text);
+                });
+                db.ref(`rooms/${currentRoom}/gifts`).limitToLast(1).on('child_added', snap => {
+                    const g = snap.val();
+                    if (g && g.senderId !== myPlayerId && Date.now() - (g.time || 0) < 10000) {
+                        state.money += (g.amount || 100);
+                        updateHUD();
+                        playSfx('spawn');
+                        showToast(`💸 ${g.senderName} size +${g.amount} TL Hediye gönderdi!`, 'text-emerald-300');
+                    }
+                });
+            }
             animate();
         };
     </script>
