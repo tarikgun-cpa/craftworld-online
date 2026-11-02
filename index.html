@@ -170,8 +170,11 @@
                 <button onclick="undoLastBuild()" class="ergo-btn bg-indigo-600/90 text-white font-bold py-1 px-2 rounded-xl border border-indigo-400 text-[11px] flex items-center gap-1">
                     <i class="fas fa-undo"></i> Geri Al
                 </button>
-                <button onclick="toggleDeleteMode()" id="btn-delete-mode" class="ergo-btn bg-slate-800/90 text-slate-200 font-bold py-1 px-2 rounded-xl border border-slate-600 text-[11px] flex items-center gap-1">
-                    <i class="fas fa-trash-alt"></i> Sök
+                <button onclick="toggleDeleteMode()" id="btn-delete-mode" class="ergo-btn bg-slate-800/90 text-slate-200 font-bold py-1 px-2 rounded-xl border border-slate-600 text-[11px] flex items-center gap-1" title="Tek Tek Parça Sök">
+                    <i class="fas fa-trash-alt"></i> Parça Sök
+                </button>
+                <button onclick="toggleWholeBuildingDeleteMode()" id="btn-delete-prefab-mode" class="ergo-btn bg-slate-800/90 text-amber-300 font-bold py-1 px-2 rounded-xl border border-amber-500/50 text-[11px] flex items-center gap-1" title="Hazır Binaya Dokununca Tüm Parçalarıyla Komple Tek Seferde Siler!">
+                    <i class="fas fa-building-circle-xmark"></i> <span id="delete-prefab-label">Komple Bina Sök: KAPALI</span>
                 </button>
                 <button onclick="toggleSaveWorldModal()" class="ergo-btn bg-emerald-600/90 text-white font-bold py-1 px-2 rounded-xl border border-emerald-400 text-[11px] flex items-center gap-1">
                     <i class="fas fa-save"></i> Kaydet/Işınlan
@@ -903,6 +906,12 @@
                 return -2.8 * coastDepth;
             }
 
+            // 2A. URASWORLD Panoramik Tepe (Şehir Meydanının Tam Karşısında: X=15, Z=68)
+            const dUrasFrontHill = Math.hypot((x - 15) * 0.55, z - 68);
+            if (dUrasFrontHill < 34) {
+                return Math.pow(Math.cos((dUrasFrontHill / 34) * (Math.PI / 2)), 1.2) * 26;
+            }
+
             // 2. Central Flat Building, Open Parking Lot & Airport Valley (Completely Dry & Flat!)
             if (x > -150 && x < 206 && z > -130 && z < 95) {
                 return 0;
@@ -1180,57 +1189,58 @@
         }
 
         function buildHollywoodUrasWorldSign() {
-            const signGroup = new THREE.Group();
-            const hillX = 45;
-            const hillZ = -142;
-            const baseY = getNaturalTerrainHeight(hillX, hillZ);
-
-            // Yüksek Çözünürlüklü 3B Kabartmalı Hollywood Harf Dokusu
             const c = document.createElement('canvas');
             c.width = 2048;
             c.height = 512;
             const ctx = c.getContext('2d');
             ctx.clearRect(0, 0, c.width, c.height);
 
-            // Harf gölgesi ve 3B derinlik efekti
-            ctx.font = '900 250px "Inter", "Arial Black", sans-serif';
+            ctx.font = '900 245px "Inter", "Arial Black", sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.letterSpacing = '14px';
 
-            ctx.fillStyle = '#1e293b';
-            ctx.fillText('URASWORLD', c.width / 2 + 10, c.height / 2 + 12);
+            // Kalın Siyah/Lacivert 3B Derinlik Gölgesi
+            ctx.fillStyle = '#0f172a';
+            ctx.fillText('URAS WORLD', c.width / 2 + 12, c.height / 2 + 14);
 
+            // Parlak Beyaz & Altın Çerçeveli Hollywood Harfleri
             ctx.fillStyle = '#ffffff';
-            ctx.fillText('URASWORLD', c.width / 2, c.height / 2);
-            ctx.lineWidth = 8;
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.strokeText('URASWORLD', c.width / 2, c.height / 2);
+            ctx.fillText('URAS WORLD', c.width / 2, c.height / 2);
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = '#facc15';
+            ctx.strokeText('URAS WORLD', c.width / 2, c.height / 2);
 
             const tex = new THREE.CanvasTexture(c);
-            const signMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(92, 23),
-                new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide })
-            );
-            signMesh.position.set(0, 12.5, 0);
-            signGroup.add(signMesh);
 
-            // Harfleri Tutan Hollywood Çelik İskele Direkleri ve Gece Projektörleri
-            const strutMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.5 });
-            const spotMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-            for (let sx = -40; sx <= 40; sx += 8) {
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 20, 8), strutMat);
-                pole.position.set(sx, 10, -0.8);
-                const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 16, 6), strutMat);
-                brace.position.set(sx, 7.5, -4.5);
-                brace.rotation.x = 0.48;
-                const spot = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 0.8), spotMat);
-                spot.position.set(sx, 1.2, 3.2);
-                signGroup.add(pole, brace, spot);
-            }
+            // Hem Güney Panoramik Tepesine (Oyuncu doğduğunda tam karşısında!) hem Kuzey Tepesine Kur
+            [[15, 66, Math.PI], [55, -135, 0]].forEach(([hx, hz, rotY]) => {
+                const signGroup = new THREE.Group();
+                const baseY = getNaturalTerrainHeight(hx, hz);
 
-            signGroup.position.set(hillX, baseY - 1.5, hillZ);
-            scene.add(signGroup);
+                const signMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(86, 22),
+                    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.12, side: THREE.DoubleSide })
+                );
+                signMesh.position.set(0, 14, 0);
+                signGroup.add(signMesh);
+
+                const strutMat = getSharedMaterial(null, 0x475569, 0.5, 0.6);
+                const spotMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+                for (let sx = -36; sx <= 36; sx += 9) {
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 22, 8), strutMat);
+                    pole.position.set(sx, 11, -0.8);
+                    const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 18, 6), strutMat);
+                    brace.position.set(sx, 8.5, -4.8);
+                    brace.rotation.x = 0.48;
+                    const spot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.9), spotMat);
+                    spot.position.set(sx, 1.2, 3.5);
+                    signGroup.add(pole, brace, spot);
+                }
+
+                signGroup.position.set(hx, baseY - 1.0, hz);
+                signGroup.rotation.y = rotY;
+                scene.add(signGroup);
+            });
         }
 
         function buildMassiveWorld() {
@@ -3283,9 +3293,68 @@
         // ====================================================
         // PLACEMENT, PREFAB VILLAGE BUILDER & INTERACTION
         // ====================================================
-        let isGeneratingStarterWorld = true; // Başlangıç şehri kurulurken Firebase'e göndermeyi engeller
+        let isGeneratingStarterWorld = true;
+        let currentPrefabGroupId = null;
+        state.deleteWholeBuilding = false;
 
-        function placeSingleBlock(itemId, gx, gy, gz, rot = 0, customColor = null, replaceExisting = false, fromNetwork = false) {
+        function toggleWholeBuildingDeleteMode() {
+            state.deleteWholeBuilding = !state.deleteWholeBuilding;
+            if (state.deleteWholeBuilding) {
+                state.deleteMode = true;
+                updateDeleteButtonUI();
+            }
+            const btn = document.getElementById('btn-delete-prefab-mode');
+            const lbl = document.getElementById('delete-prefab-label');
+            if (btn && lbl) {
+                if (state.deleteWholeBuilding) {
+                    btn.className = 'ergo-btn bg-rose-600 text-white font-black py-1 px-2.5 rounded-xl border border-white shadow text-[11px] flex items-center gap-1';
+                    lbl.innerText = 'Komple Bina Sök: AÇIK';
+                    showToast('🏢 Komple Bina Sök AÇIK: Hazır bir binanın herhangi bir duvarına dokununca tüm bina tek seferde silinir!', 'text-amber-300');
+                } else {
+                    btn.className = 'ergo-btn bg-slate-800/90 text-amber-300 font-bold py-1 px-2 rounded-xl border border-amber-500/50 text-[11px] flex items-center gap-1';
+                    lbl.innerText = 'Komple Bina Sök: KAPALI';
+                    showToast('🔨 Tekli Parça Sökme moduna geçildi.', 'text-slate-300');
+                }
+            }
+        }
+
+        // Yapı eklendiğinde veya silindiğinde hem Odayı hem Bulut Kaydını otomatik günceller!
+        let cloudSyncTimer = null;
+        function syncStructuresToCloudAndRoom() {
+            if (isGeneratingStarterWorld) return;
+            // 1. Tarayıcı Hafızasına (LocalStorage) Anında Kaydet
+            const savePayload = {
+                money: state.money,
+                resources: state.resources,
+                ownedWeapons: state.ownedWeapons,
+                equippedWeapon: state.equippedWeapon,
+                structures: placedStructures.map(s => ({
+                    type: s.type,
+                    x: Number(s.pos.x.toFixed(2)),
+                    y: Number(s.pos.y.toFixed(2)),
+                    z: Number(s.pos.z.toFixed(2)),
+                    rot: s.rotation || 0,
+                    colorHex: s.colorHex || null,
+                    prefabGroupId: s.prefabGroupId || null,
+                    prefabType: s.prefabType || null
+                }))
+            };
+            localStorage.setItem('craftworld_save_v3', JSON.stringify(savePayload));
+
+            // 2. Firebase Bulut (cloudSaves) ve Ortak Odaya (sharedStructures) Senkronize Et
+            if (!db) return;
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                db.ref(`cloudSaves/${myNickname}`).set(savePayload);
+                db.ref(`rooms/${currentRoom}/worldStructures`).set({
+                    updatedBy: myPlayerId,
+                    updatedAt: Date.now(),
+                    structures: savePayload.structures
+                });
+            }, 350);
+        }
+
+        function placeSingleBlock(itemId, gx, gy, gz, rot = 0, customColor = null, replaceExisting = false, fromNetwork = false, prefabGroupId = null, prefabType = null) {
             if (replaceExisting) {
                 for (let i = placedStructures.length - 1; i >= 0; i--) {
                     const s = placedStructures[i];
@@ -3300,25 +3369,20 @@
             mesh.position.set(gx, gy, gz);
             mesh.rotation.y = rot * (Math.PI / 2);
             scene.add(mesh);
+
+            const activeGroupId = prefabGroupId || currentPrefabGroupId || null;
             placedStructures.push({
                 mesh,
                 pos: new THREE.Vector3(gx, gy, gz),
                 type: itemId,
                 rotation: rot,
-                colorHex: colToUse
+                colorHex: colToUse,
+                prefabGroupId: activeGroupId,
+                prefabType: prefabType || null
             });
 
-            // Sadece oyuncu kendi eliyle koyduğunda (başlangıç şehri değilse ve ağdan gelmediyse) Firebase'e gönder
-            if (db && !isGeneratingStarterWorld && !fromNetwork) {
-                db.ref(`rooms/${currentRoom}/sharedStructures`).push({
-                    author: myPlayerId,
-                    type: itemId,
-                    x: gx,
-                    y: gy,
-                    z: gz,
-                    rot: rot,
-                    colorHex: colToUse || null
-                });
+            if (!isGeneratingStarterWorld && !fromNetwork && !currentPrefabGroupId) {
+                syncStructuresToCloudAndRoom();
             }
         }
 
@@ -3342,7 +3406,6 @@
             signGroup.position.set(cx, baseY, frontZ);
 
             if (buildingType === 'prefab_hospital') {
-                // Red Cross Emblem + Ambulance Canopy + Healing Aura Ring in front of Hospital Door
                 const redMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
                 const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
                 const backing = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 0.25), whiteMat);
@@ -3355,7 +3418,6 @@
                 const canopy = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.25, 2.4), new THREE.MeshStandardMaterial({ color: 0xe11d48 }));
                 canopy.position.set(0, GRID - 0.2, 1.2);
 
-                // Glowing Green/Red Healing Pad in front of entrance
                 const healPad = new THREE.Mesh(
                     new THREE.RingGeometry(1.1, 1.65, 24),
                     new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide })
@@ -3365,7 +3427,6 @@
                 signGroup.add(backing, crossV, crossH, canopy, healPad);
 
             } else if (buildingType === 'prefab_school') {
-                // School Flagpole with Turkish Red Flag + Clock/Bell Board
                 const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 7.5, 10), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.7 }));
                 pole.position.set(-5.0, 3.75, 2.5);
                 const flag = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.1, 0.08), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
@@ -3375,7 +3436,6 @@
                 signGroup.add(pole, flag, signBoard);
 
             } else if (buildingType === 'prefab_police') {
-                // Police Shield & Blue Siren Beacons
                 const board = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.0, 0.3), new THREE.MeshStandardMaterial({ color: 0x1e3a8a }));
                 board.position.set(0, GRID * 2 + 0.6, 0.2);
                 const beaconL = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
@@ -3385,7 +3445,6 @@
                 signGroup.add(board, beaconL, beaconR);
 
             } else if (buildingType === 'prefab_firestation') {
-                // Fire Station Siren Tower & Red Banner
                 const tower = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 2.2), new THREE.MeshStandardMaterial({ color: 0x991b1b }));
                 tower.position.set(3.8, GRID + 1.6, -2.0);
                 const bell = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 10), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
@@ -3393,7 +3452,6 @@
                 signGroup.add(tower, bell);
 
             } else if (buildingType === 'prefab_port') {
-                // Harbor Lighthouse Beacon Tower + Cargo Crane Boom
                 const lighthouse = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.3, 9.5, 12), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
                 lighthouse.position.set(5.5, 4.75, -2.0);
                 const redBand = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 2.4, 12), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
@@ -3406,7 +3464,6 @@
                 signGroup.add(lighthouse, redBand, lantern, craneBoom);
 
             } else if (buildingType === 'prefab_airport') {
-                // Tall Air Traffic Control Tower + Rotating Radar Dish
                 const towerShaft = new THREE.Mesh(new THREE.BoxGeometry(2.6, 10.5, 2.6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
                 towerShaft.position.set(6.0, 5.25, -3.0);
                 const controlCab = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 1.8, 2.4, 8), new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65 }));
@@ -3417,7 +3474,6 @@
                 signGroup.add(towerShaft, controlCab, radar);
 
             } else if (buildingType === 'prefab_mechanic') {
-                // Auto Mechanic Roof Wrench Emblem + Yellow Vehicle Repair Pad in front
                 const signBoard = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.1, 0.3), new THREE.MeshStandardMaterial({ color: 0xf59e0b }));
                 signBoard.position.set(0, GRID + 0.7, 0.2);
                 const wrench = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.2, 8), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85 }));
@@ -3442,8 +3498,11 @@
             const baseY = flattenTerrainAt(cx, cz, 4);
             let signMesh = null;
 
+            // Bu hazır binanın tüm parçalarını tek bir grup kimliği altında topla!
+            const groupId = `pf_${prefabId}_${cx}_${cz}_${Date.now()}`;
+            currentPrefabGroupId = groupId;
+
             if (prefabId === 'prefab_cottage') {
-                // 3x3 Charming Walkable Cottage + Front Wood Veranda + Flower Planters + Chimney
                 for (let dx = -1; dx <= 1; dx++) {
                     for (let dz = -1; dz <= 1; dz++) {
                         placeSingleBlock('foundation', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0x92400e);
@@ -3462,7 +3521,6 @@
                 if (!silent) showToast('🏡 Hazır Köy Evi kuruldu! (+2 Nüfus ve +20 TL/15sn Kira Geliri)', 'text-emerald-300');
 
             } else if (prefabId === 'prefab_villa') {
-                // 2-Story Walkable Luxury Villa with Columns, Pergola & Balcony
                 for (let dx = -1; dx <= 2; dx++) {
                     for (let dz = -1; dz <= 1; dz++) {
                         placeSingleBlock('marble_floor', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0xf8fafc);
@@ -3492,7 +3550,6 @@
                 if (!silent) showToast('🏘️ 2 Katlı Lüks Villa kuruldu! (+4 Nüfus ve +40 TL/15sn Kira Geliri)', 'text-emerald-300');
 
             } else if (prefabId === 'prefab_apartment') {
-                // 3-Story Modern City Apartment Building with Balconies
                 for (let floor = 0; floor < 3; floor++) {
                     const fy = baseY + floor * GRID;
                     const wallCol = floor === 0 ? 0x334155 : (floor === 1 ? 0xf8fafc : 0xe2e8f0);
@@ -3526,7 +3583,6 @@
                 placeSingleBlock('bench', cx - 2 * GRID, baseY, cz + 2 * GRID, 0);
                 placeSingleBlock('bench', cx + 2 * GRID, baseY, cz + 2 * GRID, 0);
                 signMesh = createArchitecturalSign('prefab_school', cx, baseY, cz + GRID + EDGE);
-                // Immediately spawn 2 new citizens drawn by the school!
                 spawnCitizen(cx - 4, cz + 10);
                 spawnCitizen(cx + 4, cz + 10);
                 if (!silent) showToast('🏫 İlkokul Binası kuruldu! Şehir nüfusu +6 çoğaldı!', 'text-emerald-300');
@@ -3589,7 +3645,6 @@
                 if (!silent) showToast('🏥 Şehir Hastanesi kuruldu! Kapısındaki yeşil halkada [F] ile 50 TL karşılığında Canınızı (100 HP) iyileştirebilirsiniz!', 'text-emerald-300');
 
             } else if (prefabId === 'prefab_port') {
-                // Harbor Port Authority Building with Lighthouse & Crane
                 for (let dx = -2; dx <= 1; dx++) {
                     for (let dz = -1; dz <= 1; dz++) {
                         placeSingleBlock('foundation', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0x475569);
@@ -3602,7 +3657,6 @@
                 if (!silent) showToast('⚓ Liman Binası kuruldu! (+4 Nüfus ve +55 TL/15sn Deniz Ticareti Geliri)', 'text-sky-300');
 
             } else if (prefabId === 'prefab_airport') {
-                // Modern Glass Airport Terminal + Control Tower
                 for (let dx = -2; dx <= 2; dx++) {
                     for (let dz = -1; dz <= 1; dz++) {
                         placeSingleBlock('marble_floor', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0xe2e8f0);
@@ -3616,7 +3670,6 @@
                 if (!silent) showToast('✈️ Havaalanı Terminali & Kulesi kuruldu! (+6 Nüfus ve +75 TL/15sn Havacılık Geliri)', 'text-sky-300');
 
             } else if (prefabId === 'prefab_mechanic') {
-                // Auto Mechanic Twin-Bay Service Garage + Yellow Repair Pad
                 for (let dx = -1; dx <= 1; dx++) {
                     for (let dz = -1; dz <= 1; dz++) {
                         placeSingleBlock('foundation', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0x334155);
@@ -3631,7 +3684,6 @@
                 if (!silent) showToast('🔧 Oto Tamircisi kuruldu! Önündeki sarı halkada araçlarınızı %55 indirimle tamir edebilirsiniz!', 'text-amber-300');
 
             } else if (prefabId === 'prefab_bank') {
-                // 2 Katlı Sütunlu ve Altın Kubbeli Merkez Bankası
                 for (let floor = 0; floor < 2; floor++) {
                     const fy = baseY + floor * GRID;
                     for (let dx = -2; dx <= 2; dx++) {
@@ -3648,7 +3700,6 @@
                     buildRoomPerimeter(cx, cz, fy, -2, 2, -1, 1, 'concrete_wall', 0xf8fafc, floor === 0 ? 0 : 99, 1);
                     if (floor === 0) placeSingleBlock('stairs', cx + 2 * GRID, fy, cz, 0, 0xd97706);
                 }
-                // Ön Giriş Altın Sütunlar
                 placeSingleBlock('pillar_column', cx - 2 * GRID, baseY, cz + GRID, 0, 0xfacc15);
                 placeSingleBlock('pillar_column', cx + GRID, baseY, cz + GRID, 0, 0xfacc15);
                 if (!silent) showToast('🏦 Merkez Bankası kuruldu! (+5 Nüfus ve +95 TL/15sn Finans Geliri)', 'text-amber-300');
@@ -3671,7 +3722,15 @@
                 if (!silent) showToast('🌳 Çitli Köy Bahçesi kuruldu! (+2 Nüfus Kapasitesi)', 'text-emerald-300');
             }
 
+            currentPrefabGroupId = null;
+
+            // Bu hazır binanın tüm parçalarına prefabType bilgisini işle
+            placedStructures.forEach(s => {
+                if (s.prefabGroupId === groupId) s.prefabType = prefabId;
+            });
+
             functionalBuildings.push({
+                groupId,
                 type: prefabId,
                 cx,
                 cz,
@@ -3680,7 +3739,47 @@
                 signMesh
             });
             updateHUD();
-            if (!silent) playSfx('spawn');
+            if (!silent) {
+                playSfx('spawn');
+                syncStructuresToCloudAndRoom();
+            }
+        }
+
+        function removeEntirePrefabGroup(groupId) {
+            if (!groupId) return false;
+            let removedCount = 0;
+            let prefabType = null;
+
+            for (let i = placedStructures.length - 1; i >= 0; i--) {
+                if (placedStructures[i].prefabGroupId === groupId) {
+                    if (!prefabType) prefabType = placedStructures[i].prefabType;
+                    scene.remove(placedStructures[i].mesh);
+                    placedStructures.splice(i, 1);
+                    removedCount++;
+                }
+            }
+
+            for (let i = functionalBuildings.length - 1; i >= 0; i--) {
+                const fb = functionalBuildings[i];
+                if (fb.groupId === groupId) {
+                    if (!prefabType) prefabType = fb.type;
+                    if (fb.signMesh) scene.remove(fb.signMesh);
+                    functionalBuildings.splice(i, 1);
+                }
+            }
+
+            if (removedCount > 0) {
+                hoveredStructure = null;
+                playSfx('remove');
+                const catItem = CATALOG.find(c => c.id === prefabType);
+                const refund = catItem ? catItem.price : 400;
+                state.money += refund;
+                updateHUD();
+                syncStructuresToCloudAndRoom();
+                showToast(`🏢 ${catItem ? catItem.name : 'Hazır Bina'} (${removedCount} parça) tek seferde komple yıkıldı! (+${refund} TL iade)`, 'text-amber-300');
+                return true;
+            }
+            return false;
         }
 
         function undoLastBuild() {
@@ -3688,7 +3787,12 @@
                 showToast('⚠️ Geri alınacak bir yapı yok!', 'text-slate-400');
                 return;
             }
-            const last = placedStructures.pop();
+            const last = placedStructures[placedStructures.length - 1];
+            if (last.prefabGroupId) {
+                removeEntirePrefabGroup(last.prefabGroupId);
+                return;
+            }
+            placedStructures.pop();
             scene.remove(last.mesh);
             if (hoveredStructure === last) hoveredStructure = null;
             playSfx('remove');
@@ -3698,10 +3802,16 @@
                 state.money += refund;
                 updateHUD();
             }
+            syncStructuresToCloudAndRoom();
             showToast(`↩️ ${catItem ? catItem.name : 'Yapı'} geri alındı (+${refund} TL iade edildi)`, 'text-indigo-300');
         }
 
         function removeSpecificStructure(targetStruct) {
+            if (!targetStruct) return false;
+            // Eğer "Komple Bina Sök" modu açıksa ve bu parça bir hazır binaya aitse tüm binayı tek seferde sil!
+            if (state.deleteWholeBuilding && targetStruct.prefabGroupId) {
+                return removeEntirePrefabGroup(targetStruct.prefabGroupId);
+            }
             const idx = placedStructures.indexOf(targetStruct);
             if (idx !== -1) {
                 scene.remove(targetStruct.mesh);
@@ -3714,7 +3824,8 @@
                     state.money += refund;
                     updateHUD();
                 }
-                showToast(`🗑️ ${catItem ? catItem.name : 'Yapı'} söküldü (+${refund} TL iade)`, 'text-rose-300');
+                syncStructuresToCloudAndRoom();
+                showToast(`🗑️ ${catItem ? catItem.name : 'Yapı'} söküldü ve buluta kaydedildi (+${refund} TL iade)`, 'text-rose-300');
                 return true;
             }
             return false;
@@ -5180,11 +5291,11 @@
                 v.mesh.position.copy(v.pos);
                 v.mesh.rotation.y = v.angle;
 
-                // Check if player runs over a civilian with a vehicle -> Triggers Police Pursuit!
-                if (Math.abs(v.speed) > 0.25) {
+                // Check if player runs over a civilian with a vehicle -> Sadece yer seviyesindeyken (Y farkı < 2.2m) geçerlidir!
+                if (Math.abs(v.speed) > 0.25 && !spec.domain.startsWith('air_')) {
                     for (let cIdx = citizens.length - 1; cIdx >= 0; cIdx--) {
                         const c = citizens[cIdx];
-                        if (Math.hypot(c.pos.x - v.pos.x, c.pos.z - v.pos.z) < 2.4) {
+                        if (Math.hypot(c.pos.x - v.pos.x, c.pos.z - v.pos.z) < 2.4 && Math.abs(v.pos.y - c.pos.y) < 2.2) {
                             scene.remove(c.mesh);
                             citizens.splice(cIdx, 1);
                             triggerPolicePursuit('Araçla sivil vatandaşa çarptınız!');
@@ -5194,7 +5305,7 @@
                     // Also allow ramming bounty targets with a vehicle
                     for (let bIdx = bounties.length - 1; bIdx >= 0; bIdx--) {
                         const b = bounties[bIdx];
-                        if (Math.hypot(b.pos.x - v.pos.x, b.pos.z - v.pos.z) < 2.5) {
+                        if (Math.hypot(b.pos.x - v.pos.x, b.pos.z - v.pos.z) < 2.5 && Math.abs(v.pos.y - b.pos.y) < 2.2) {
                             b.hp -= 45;
                             if (b.hp <= 0) {
                                 state.money += b.reward;
@@ -6003,23 +6114,23 @@
                 });
             });
 
-            // C) Ortak inşaat bloklarını dinle
-            roomRef.child('sharedStructures').off();
-            roomRef.child('sharedStructures').on('child_added', snap => {
-                const st = snap.val();
-                if (!st || st.author === myPlayerId) return;
-                const alreadyExists = placedStructures.some(s =>
-                    Math.abs(s.pos.x - st.x) < 0.3 &&
-                    Math.abs(s.pos.y - st.y) < 0.3 &&
-                    Math.abs(s.pos.z - st.z) < 0.3 &&
-                    s.type === st.type
-                );
-                if (!alreadyExists) {
-                    placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true);
+        // C) Ortak odadaki inşa edilen ve SİLİNEN yapıları tam senkronize dinle
+            roomRef.child('worldStructures').off();
+            roomRef.child('worldStructures').on('value', snap => {
+                const wData = snap.val();
+                if (!wData || wData.updatedBy === myPlayerId || !Array.isArray(wData.structures)) return;
+
+                while (placedStructures.length > 0) {
+                    const s = placedStructures.pop();
+                    scene.remove(s.mesh);
                 }
+                wData.structures.forEach(st => {
+                    placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true, st.prefabGroupId, st.prefabType);
+                });
+                updateHUD();
             });
 
-            // D) Oda Sohbeti ve Para Hediyelerini Dinle (Oda değiştiğinde otomatik yeni odaya bağlanır)
+            // D) Oda Sohbeti ve Para Hediyelerini Dinle
             roomRef.child('chat').off();
             roomRef.child('chat').limitToLast(10).on('child_added', snap => {
                 const msg = snap.val();
@@ -6050,50 +6161,64 @@
                 equippedWeapon: state.equippedWeapon,
                 structures: placedStructures.map(s => ({
                     type: s.type,
-                    x: s.pos.x,
-                    y: s.pos.y,
-                    z: s.pos.z,
-                    rot: s.rotation,
-                    colorHex: s.colorHex || null
+                    x: Number(s.pos.x.toFixed(2)),
+                    y: Number(s.pos.y.toFixed(2)),
+                    z: Number(s.pos.z.toFixed(2)),
+                    rot: s.rotation || 0,
+                    colorHex: s.colorHex || null,
+                    prefabGroupId: s.prefabGroupId || null,
+                    prefabType: s.prefabType || null
                 }))
             };
+            localStorage.setItem('craftworld_save_v3', JSON.stringify(data));
             db.ref(`cloudSaves/${myNickname}`).set(data).then(() => {
+                db.ref(`rooms/${currentRoom}/worldStructures`).set({
+                    updatedBy: myPlayerId,
+                    updatedAt: Date.now(),
+                    structures: data.structures
+                });
                 toggleSaveWorldModal();
-                showToast(`☁️ Şehir ve Paranız Buluta (${myNickname}) Kaydedildi!`, 'text-emerald-300');
+                showToast(`☁️ Şehir (Silinen ve Eklenen Tüm Yapılarla) Buluta (${myNickname}) Kaydedildi!`, 'text-emerald-300');
             }).catch(err => {
                 showToast('⚠️ Bulut kayıt hatası: ' + err.message, 'text-rose-400');
             });
         }
 
-        function loadWorldFromFirebaseCloud() {
+        function loadWorldFromFirebaseCloud(silent = false) {
             if (!db) return;
             db.ref(`cloudSaves/${myNickname}`).once('value').then(snap => {
                 const data = snap.val();
                 if (!data) {
-                    showToast(`⚠️ "${myNickname}" adına kayıtlı bulut verisi bulunamadı!`, 'text-rose-400');
+                    if (!silent) showToast(`⚠️ "${myNickname}" adına kayıtlı bulut verisi bulunamadı!`, 'text-rose-400');
                     return;
                 }
-                state.money = data.money || 0;
+                state.money = data.money !== undefined ? data.money : state.money;
                 if (data.resources) state.resources = data.resources;
                 if (data.ownedWeapons) state.ownedWeapons = data.ownedWeapons;
                 if (data.equippedWeapon) {
                     state.equippedWeapon = data.equippedWeapon;
                     if (player.mesh.userData.gunMesh) player.mesh.userData.gunMesh.visible = true;
                 }
-                if (data.structures) {
+                if (Array.isArray(data.structures)) {
                     while (placedStructures.length > 0) {
                         const s = placedStructures.pop();
                         scene.remove(s.mesh);
                     }
+                    while (functionalBuildings.length > 0) {
+                        const fb = functionalBuildings.pop();
+                        if (fb.signMesh) scene.remove(fb.signMesh);
+                    }
                     data.structures.forEach(st => {
-                        placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true);
+                        placeSingleBlock(st.type, st.x, st.y, st.z, st.rot || 0, st.colorHex, false, true, st.prefabGroupId, st.prefabType);
                     });
                 }
                 updateHUD();
-                toggleSaveWorldModal();
-                showToast(`☁️ "${myNickname}" bulut kaydı başarıyla yüklendi!`, 'text-sky-300');
+                if (!silent) {
+                    toggleSaveWorldModal();
+                    showToast(`☁️ "${myNickname}" bulut kaydı başarıyla yüklendi!`, 'text-sky-300');
+                }
             });
-        }
+        }    
 
         // ====================================================
         // 1. DYNAMIC VEHICLE MISSIONS (TAXI, AMBULANCE, FIRE, CARGO, TOW)
