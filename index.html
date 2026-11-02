@@ -185,8 +185,11 @@
                 <button onclick="toggleChatPanel()" class="ergo-btn bg-teal-600/95 text-white font-black py-1 px-2.5 rounded-xl border border-teal-300 shadow text-[11px] flex items-center gap-1">
                     <i class="fas fa-comments"></i> Sohbet & Emoji
                 </button>
-                <button onclick="triggerUrasRoyalSurprise()" class="ergo-btn bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border-2 border-white shadow-lg text-[11px] flex items-center gap-1 animate-pulse" title="Uras'a Özel Havai Fişek, Kral Tacı ve Hediye! [K]">
+                <button onclick="triggerUrasRoyalSurprise()" class="ergo-btn bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border-2 border-white shadow-lg text-[11px] flex items-center gap-1" title="Uras'a Özel Havai Fişek, Kral Tacı ve Hediye! [K]">
                     <span>👑</span> <span>Uras Sürprizi [K]</span>
+                </button>
+                <button onclick="toggleParkourModal()" class="ergo-btn bg-gradient-to-r from-yellow-400 to-emerald-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border-2 border-white shadow-lg text-[11px] flex items-center gap-1" title="Kara, Deniz ve Hava Altın Toplama Parkuru [Y]">
+                    <i class="fas fa-flag-checkered"></i> <span>Altın Parkuru [Y]</span>
                 </button>
                 <button onclick="startOrCancelVehicleJob()" id="btn-vehicle-job" class="hidden ergo-btn bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black py-1 px-2.5 rounded-xl border border-white shadow text-[11px] items-center gap-1 animate-bounce">
                     <i class="fas fa-briefcase"></i> <span id="vehicle-job-btn-label">Meslek Başlat [J]</span>
@@ -906,14 +909,8 @@
                 return -2.8 * coastDepth;
             }
 
-            // 2A. URASWORLD Panoramik Tepe (Şehir Meydanının Tam Karşısında: X=15, Z=68)
-            const dUrasFrontHill = Math.hypot((x - 15) * 0.55, z - 68);
-            if (dUrasFrontHill < 34) {
-                return Math.pow(Math.cos((dUrasFrontHill / 34) * (Math.PI / 2)), 1.2) * 26;
-            }
-
             // 2. Central Flat Building, Open Parking Lot & Airport Valley (Completely Dry & Flat!)
-            if (x > -150 && x < 206 && z > -130 && z < 95) {
+            if (x > -150 && x < 206 && z > -112 && z < 95) {
                 return 0;
             }
 
@@ -935,10 +932,10 @@
                 }
             }
 
-            // 5. Central URASWORLD Landmark Hill (Directly overlooking the city at X=45, Z=-150)
-            const dUrasHill = Math.hypot((x - 45) * 0.65, z - (-150));
-            if (dUrasHill < 62) {
-                return Math.pow(Math.cos((dUrasHill / 62) * (Math.PI / 2)), 1.4) * 32;
+            // 5. Kibar Kuzey Tepesi (Havaalanının arkasında, X=52, Z=-126)
+            const dUrasHill = Math.hypot((x - 52) * 0.75, z - (-126));
+            if (dUrasHill < 42) {
+                return Math.pow(Math.cos((dUrasHill / 42) * (Math.PI / 2)), 1.4) * 18;
             }
 
             // 6. Rolling Hills & Northern/Western Mountains
@@ -1190,57 +1187,46 @@
 
         function buildHollywoodUrasWorldSign() {
             const c = document.createElement('canvas');
-            c.width = 2048;
-            c.height = 512;
+            c.width = 1024;
+            c.height = 256;
             const ctx = c.getContext('2d');
             ctx.clearRect(0, 0, c.width, c.height);
 
-            ctx.font = '900 245px "Inter", "Arial Black", sans-serif';
+            ctx.font = '900 120px "Inter", "Arial Black", sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Kalın Siyah/Lacivert 3B Derinlik Gölgesi
             ctx.fillStyle = '#0f172a';
-            ctx.fillText('URAS WORLD', c.width / 2 + 12, c.height / 2 + 14);
+            ctx.fillText('URAS WORLD', c.width / 2 + 5, c.height / 2 + 6);
 
-            // Parlak Beyaz & Altın Çerçeveli Hollywood Harfleri
             ctx.fillStyle = '#ffffff';
             ctx.fillText('URAS WORLD', c.width / 2, c.height / 2);
-            ctx.lineWidth = 10;
+            ctx.lineWidth = 4;
             ctx.strokeStyle = '#facc15';
             ctx.strokeText('URAS WORLD', c.width / 2, c.height / 2);
 
             const tex = new THREE.CanvasTexture(c);
+            const hx = 52, hz = -122;
+            const signGroup = new THREE.Group();
+            const baseY = getNaturalTerrainHeight(hx, hz);
 
-            // Hem Güney Panoramik Tepesine (Oyuncu doğduğunda tam karşısında!) hem Kuzey Tepesine Kur
-            [[15, 66, Math.PI], [55, -135, 0]].forEach(([hx, hz, rotY]) => {
-                const signGroup = new THREE.Group();
-                const baseY = getNaturalTerrainHeight(hx, hz);
+            // Çok daha kibar ve orantılı boyut (38x9.5m)
+            const signMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(38, 9.5),
+                new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.12, side: THREE.DoubleSide })
+            );
+            signMesh.position.set(0, 6.2, 0);
+            signGroup.add(signMesh);
 
-                const signMesh = new THREE.Mesh(
-                    new THREE.PlaneGeometry(86, 22),
-                    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.12, side: THREE.DoubleSide })
-                );
-                signMesh.position.set(0, 14, 0);
-                signGroup.add(signMesh);
+            const strutMat = getSharedMaterial(null, 0x475569, 0.5, 0.6);
+            for (let sx = -15; sx <= 15; sx += 6) {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 9.5, 6), strutMat);
+                pole.position.set(sx, 4.75, -0.4);
+                signGroup.add(pole);
+            }
 
-                const strutMat = getSharedMaterial(null, 0x475569, 0.5, 0.6);
-                const spotMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-                for (let sx = -36; sx <= 36; sx += 9) {
-                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 22, 8), strutMat);
-                    pole.position.set(sx, 11, -0.8);
-                    const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 18, 6), strutMat);
-                    brace.position.set(sx, 8.5, -4.8);
-                    brace.rotation.x = 0.48;
-                    const spot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.9), spotMat);
-                    spot.position.set(sx, 1.2, 3.5);
-                    signGroup.add(pole, brace, spot);
-                }
-
-                signGroup.position.set(hx, baseY - 1.0, hz);
-                signGroup.rotation.y = rotY;
-                scene.add(signGroup);
-            });
+            signGroup.position.set(hx, baseY - 0.5, hz);
+            scene.add(signGroup);
         }
 
         function buildMassiveWorld() {
@@ -2266,31 +2252,68 @@
         function fireWeapon() {
             if (state.isArrested) return;
             if (!state.equippedWeapon) {
-                showToast('⚠️ Ateş etmek için önce [M] SİLAH MARKETİNDEN bir silah satın almalısınız!', 'text-rose-400');
-                toggleWeaponShopModal(true);
-                return;
+                // Silahı yoksa ve parası yetiyorsa 9mm Tabancayı otomatik kuşan, yetmiyorsa dükkanı aç
+                if (state.money >= 150) {
+                    buyOrEquipWeapon('pistol');
+                } else {
+                    showToast('⚠️ Ateş etmek için önce [M] SİLAH MARKETİNDEN bir silah satın almalısınız!', 'text-rose-400');
+                    toggleWeaponShopModal(true);
+                    return;
+                }
             }
 
             const wSpec = WEAPON_CATALOG.find(w => w.id === state.equippedWeapon) || WEAPON_CATALOG[0];
             const shooterPos = state.inVehicle ? state.inVehicle.pos.clone() : player.pos.clone();
-            const shooterAngle = state.firstPerson ? state.cameraAngle : (state.inVehicle ? state.inVehicle.angle : player.angle);
-            shooterPos.y += 1.65;
+            let shooterAngle = state.firstPerson ? state.cameraAngle : (state.inVehicle ? state.inVehicle.angle : player.angle);
 
-            const bulletMesh = new THREE.Mesh(
-                new THREE.SphereGeometry(0.24, 8, 8),
+            // AKILLI OTOMATİK NİŞAN (AUTO-AIM LOCK-ON): Menzildeki en yakın suçluya otomatik kilitlen!
+            let lockedBounty = null;
+            let bestDist = wSpec.range * 1.35;
+            for (const b of bounties) {
+                const d = Math.hypot(b.pos.x - shooterPos.x, b.pos.z - shooterPos.z);
+                if (d < bestDist) {
+                    bestDist = d;
+                    lockedBounty = b;
+                }
+            }
+
+            if (lockedBounty) {
+                shooterAngle = Math.atan2(lockedBounty.pos.x - shooterPos.x, lockedBounty.pos.z - shooterPos.z);
+                if (!state.inVehicle) {
+                    player.angle = shooterAngle;
+                    player.mesh.rotation.y = shooterAngle;
+                }
+            }
+
+            shooterPos.y += 1.55;
+
+            // Parlak Lazer İzli Mermi + Namlu Parlaması
+            const bulletGroup = new THREE.Group();
+            const core = new THREE.Mesh(
+                new THREE.SphereGeometry(0.36, 8, 8),
                 new THREE.MeshBasicMaterial({ color: 0xfef08a })
             );
-            bulletMesh.position.copy(shooterPos);
-            scene.add(bulletMesh);
+            const trail = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.14, 0.04, 2.6, 6),
+                new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.85 })
+            );
+            trail.rotation.x = Math.PI / 2;
+            trail.position.z = -1.1;
+            bulletGroup.add(core, trail);
+            bulletGroup.position.copy(shooterPos);
+            bulletGroup.rotation.y = shooterAngle;
+            scene.add(bulletGroup);
 
+            const fastSpeed = wSpec.speed * 1.45;
             projectiles.push({
-                mesh: bulletMesh,
+                mesh: bulletGroup,
                 pos: shooterPos,
-                vx: Math.sin(shooterAngle) * wSpec.speed,
-                vz: Math.cos(shooterAngle) * wSpec.speed,
-                damage: wSpec.damage,
+                vx: Math.sin(shooterAngle) * fastSpeed,
+                vz: Math.cos(shooterAngle) * fastSpeed,
+                damage: wSpec.damage + 15,
                 fromPlayer: true,
-                life: wSpec.range
+                lockedTarget: lockedBounty,
+                life: Math.round(wSpec.range * 1.2)
             });
             playSfx('remove');
         }
@@ -2569,6 +2592,18 @@
             marker.position.y = 3.4;
             mesh.add(marker);
 
+            // Suçlunun Başının Üstünde Canlı HP Barı ve İsim Etiketi
+            const hpBg = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.24, 0.08), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+            hpBg.position.y = 3.05;
+            const hpFill = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.18, 0.10), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+            hpFill.position.y = 3.05;
+            mesh.add(hpBg, hpFill);
+
+            const wantedTag = createPlayerNameTagSprite(`🦹 ${name} (${reward}₺)`, 'rgba(153, 27, 27, 0.92)', '#f87171');
+            wantedTag.scale.set(3.4, 0.82, 1);
+            wantedTag.position.set(0, 3.95, 0);
+            mesh.add(wantedTag);
+
             mesh.position.set(bx, by, bz);
             scene.add(mesh);
 
@@ -2580,6 +2615,7 @@
                 maxHp,
                 mesh,
                 marker,
+                hpFill,
                 pos: new THREE.Vector3(bx, by, bz),
                 angle: Math.random() * Math.PI * 2,
                 timer: 60,
@@ -4802,13 +4838,31 @@
                 let hit = false;
 
                 if (p.fromPlayer) {
-                    // Check hit on Wanted Bounty Criminals (High Reward!)
+                    // Eğer mermi bir suçluya kilitlendiyse hafif güdümlü (Homing) olarak hedefi takip etsin!
+                    if (p.lockedTarget && bounties.includes(p.lockedTarget)) {
+                        const desiredAng = Math.atan2(p.lockedTarget.pos.x - p.pos.x, p.lockedTarget.pos.z - p.pos.z);
+                        const spd = Math.hypot(p.vx, p.vz);
+                        p.vx = p.vx * 0.75 + Math.sin(desiredAng) * spd * 0.25;
+                        p.vz = p.vz * 0.75 + Math.cos(desiredAng) * spd * 0.25;
+                        p.mesh.rotation.y = desiredAng;
+                    }
+
+                    // Check hit on Wanted Bounty Criminals (Geniş 3.2m vuruş kutusu + Can Barı + Geri Tepme!)
                     for (let bIdx = bounties.length - 1; bIdx >= 0; bIdx--) {
                         const b = bounties[bIdx];
-                        if (Math.hypot(b.pos.x - p.pos.x, b.pos.z - p.pos.z) < 1.8) {
+                        if (Math.hypot(b.pos.x - p.pos.x, b.pos.z - p.pos.z) < 3.2) {
                             hit = true;
-                            b.hp -= (p.damage || 35);
-                            showToast(`🎯 Suçlu ${b.name} vuruldu! (${Math.max(0, b.hp)} HP kaldı)`, 'text-purple-300');
+                            b.hp -= (p.damage || 50);
+                            // Geri tepme (Knockback) ve Can Barı güncellemesi
+                            b.pos.x += p.vx * 0.35;
+                            b.pos.z += p.vz * 0.35;
+                            if (b.hpFill) {
+                                const ratio = Math.max(0.05, b.hp / b.maxHp);
+                                b.hpFill.scale.x = ratio;
+                                b.hpFill.material.color.setHex(ratio > 0.4 ? 0xfacc15 : 0xef4444);
+                            }
+                            playSfx('place');
+                            showToast(`💥 TAM İSABET! ${b.name} vuruldu! (${Math.max(0, b.hp)} HP kaldı)`, 'text-purple-300');
                             if (b.hp <= 0) {
                                 state.money += b.reward;
                                 updateHUD();
@@ -4822,11 +4876,11 @@
                         }
                     }
 
-                    // Check hit on Innocent Citizens -> Triggers Police Pursuit!
-                    if (!hit) {
+                    // Eğer mermi bir suçluya kilitlenmişse masum sivillerin içinden geçer (yanlışlıkla sivil vurup tutuklanmazsınız!)
+                    if (!hit && !p.lockedTarget) {
                         for (let cIdx = citizens.length - 1; cIdx >= 0; cIdx--) {
                             const c = citizens[cIdx];
-                            if (Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 1.5) {
+                            if (Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 1.3) {
                                 hit = true;
                                 scene.remove(c.mesh);
                                 citizens.splice(cIdx, 1);
@@ -6830,8 +6884,263 @@
             }
         }, 25);
 
+        // ====================================================
+        // 🏁 KARA, DENİZ VE HAVA ALTIN TOPLAMA PARKURU SİSTEMİ
+        // ====================================================
+        const parkourCoins = [];
+        let activeParkour = null;
+
+        // Parkur Seçim Penceresini ve Canlı Sayacı DOM'a Ekle
+        (function injectParkourUI() {
+            const hud = document.createElement('div');
+            hud.id = 'parkour-hud';
+            hud.className = 'hidden fixed top-24 left-1/2 -translate-x-1/2 glass-panel px-5 py-2.5 rounded-2xl z-30 border-2 border-yellow-400 shadow-2xl flex items-center gap-4 pointer-events-auto';
+            hud.innerHTML = `
+                <div class="text-2xl animate-bounce" id="pk-icon">🏎️</div>
+                <div>
+                    <div class="text-xs font-black text-yellow-300 uppercase" id="pk-title">KARA ALTIN PARKURU</div>
+                    <div class="flex items-center gap-3 mt-0.5">
+                        <span class="text-sm font-black text-white">🪙 Altın: <b id="pk-score" class="text-yellow-400">0/10</b></span>
+                        <span class="text-sm font-black bg-rose-600 text-white px-2 py-0.5 rounded-lg">⏱️ <b id="pk-timer">60</b>s</span>
+                    </div>
+                </div>
+                <button onclick="stopParkourChallenge(false)" class="ergo-btn bg-slate-800 hover:bg-rose-600 text-white text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-600">İptal</button>
+            `;
+            document.body.appendChild(hud);
+
+            const modal = document.createElement('div');
+            modal.id = 'parkour-modal';
+            modal.className = 'hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="glass-panel w-full max-w-lg rounded-3xl border-2 border-yellow-400/60 shadow-2xl p-5 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <h2 class="text-lg font-black text-yellow-400 flex items-center gap-2"><i class="fas fa-flag-checkered"></i> ALTIN TOPLAMA PARKURLARI</h2>
+                        <button onclick="toggleParkourModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-white font-bold">✕</button>
+                    </div>
+                    <p class="text-xs text-slate-300">İstediğiniz parkuru seçin! Süre bitmeden haritadaki <b>10 Dev Altını</b> toplayarak büyük para ödülünü kazanın (Her altın anında +50 TL, tamamlayınca dev bonus verir!):</p>
+                    <div class="space-y-2.5">
+                        <button onclick="startParkourChallenge('land')" class="ergo-btn w-full bg-slate-900 hover:bg-slate-800 border border-amber-400/60 p-3.5 rounded-2xl flex items-center justify-between text-left">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🏎️</span>
+                                <div>
+                                    <div class="font-black text-sm text-amber-300">1. KARA TAŞITLARI PARKURU</div>
+                                    <div class="text-[11px] text-slate-400">Şehir bulvarı ve otopark çevresinde 10 Altın • Süre: 65 sn</div>
+                                </div>
+                            </div>
+                            <span class="bg-emerald-950 border border-emerald-400 text-emerald-300 font-black text-xs px-3 py-1.5 rounded-xl">+1000 TL</span>
+                        </button>
+
+                        <button onclick="startParkourChallenge('sea')" class="ergo-btn w-full bg-slate-900 hover:bg-slate-800 border border-cyan-400/60 p-3.5 rounded-2xl flex items-center justify-between text-left">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🚤</span>
+                                <div>
+                                    <div class="font-black text-sm text-cyan-300">2. DENİZ FİLOSU PARKURU</div>
+                                    <div class="text-[11px] text-slate-400">Doğu Limanı ve Okyanus üzerinde 10 Altın • Süre: 75 sn</div>
+                                </div>
+                            </div>
+                            <span class="bg-emerald-950 border border-emerald-400 text-emerald-300 font-black text-xs px-3 py-1.5 rounded-xl">+1200 TL</span>
+                        </button>
+
+                        <button onclick="startParkourChallenge('air')" class="ergo-btn w-full bg-slate-900 hover:bg-slate-800 border border-purple-400/60 p-3.5 rounded-2xl flex items-center justify-between text-left">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🚁</span>
+                                <div>
+                                    <div class="font-black text-sm text-purple-300">3. HAVA AKROBASİ PARKURU</div>
+                                    <div class="text-[11px] text-slate-400">Gökyüzünde Işıklı Halkalar İçinde 10 Altın • Süre: 85 sn</div>
+                                </div>
+                            </div>
+                            <span class="bg-emerald-950 border border-emerald-400 text-emerald-300 font-black text-xs px-3 py-1.5 rounded-xl">+1500 TL</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        })();
+
+        function toggleParkourModal() {
+            const m = document.getElementById('parkour-modal');
+            if (m) m.classList.toggle('hidden');
+        }
+
+        function createGoldCoinMesh(isAirRing = false) {
+            const g = new THREE.Group();
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xfacc15,
+                metalness: 0.9,
+                roughness: 0.15,
+                emissive: 0xca8a04,
+                emissiveIntensity: 0.45
+            });
+            const coin = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.38, 20), goldMat);
+            coin.rotation.z = Math.PI / 2;
+            const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+            g.add(coin, star);
+
+            // Yerde/Denizde kolay görülmesi için parlak halka veya Havada uçuş çemberi
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(isAirRing ? 4.2 : 2.2, 0.18, 10, 28),
+                new THREE.MeshBasicMaterial({ color: isAirRing ? 0x38bdf8 : 0xfde047 })
+            );
+            if (!isAirRing) {
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = -1.2;
+            }
+            g.add(ring);
+            g.userData.coin = coin;
+            return g;
+        }
+
+        function startParkourChallenge(mode) {
+            document.getElementById('parkour-modal').classList.add('hidden');
+            stopParkourChallenge(false);
+
+            let points = [];
+            let duration = 65;
+            let reward = 1000;
+            let title = '🏎️ KARA ALTIN PARKURU';
+            let icon = '🏎️';
+
+            if (mode === 'land') {
+                // Eğer oyuncunun altında kara aracı yoksa otomatik URAS-GT veya Spor Araba ver!
+                if (!state.inVehicle || state.inVehicle.spec.domain !== 'land') {
+                    if (state.inVehicle) exitVehicle();
+                    const sportCar = vehicles.find(v => v.id === 'sport') || spawnVehicle('sport', player.pos.x + 3, player.pos.z);
+                    sportCar.pos.set(0, 0, 4);
+                    sportCar.mesh.position.copy(sportCar.pos);
+                    enterVehicle(sportCar);
+                }
+                points = [
+                    [18, 0, 1.8], [42, 0, 1.8], [68, 0, 1.8], [98, 0, 1.8], [132, 0, 1.8],
+                    [162, 0, 1.8], [68, -22, 1.8], [68, -44, 1.8], [32, -48, 1.8], [-18, 0, 1.8]
+                ];
+            } else if (mode === 'sea') {
+                duration = 75;
+                reward = 1200;
+                title = '🚤 DENİZ ALTIN PARKURU';
+                icon = '🚤';
+                if (!state.inVehicle || state.inVehicle.spec.domain !== 'sea') {
+                    if (state.inVehicle) exitVehicle();
+                    const boat = vehicles.find(v => v.id === 'speedboat') || spawnVehicle('speedboat', 222, -16);
+                    boat.pos.set(222, 0, -16);
+                    boat.mesh.position.copy(boat.pos);
+                    enterVehicle(boat);
+                }
+                points = [
+                    [235, -35, 1.6], [260, -55, 1.6], [295, -45, 1.6], [320, -15, 1.6], [325, 20, 1.6],
+                    [305, 55, 1.6], [275, 70, 1.6], [245, 55, 1.6], [225, 32, 1.6], [285, 0, 1.6]
+                ];
+            } else if (mode === 'air') {
+                duration = 85;
+                reward = 1500;
+                title = '🚁 HAVA ALTIN PARKURU';
+                icon = '🚁';
+                if (!state.inVehicle || !state.inVehicle.spec.domain.startsWith('air_')) {
+                    if (state.inVehicle) exitVehicle();
+                    const heli = vehicles.find(v => v.id === 'heli') || spawnVehicle('heli', 12, -48);
+                    heli.pos.set(12, 12, -48);
+                    heli.mesh.position.copy(heli.pos);
+                    enterVehicle(heli);
+                }
+                points = [
+                    [12, -20, 14], [45, 0, 18], [90, 10, 22], [140, 0, 20], [185, -25, 24],
+                    [150, -65, 22], [95, -80, 18], [40, -76, 15], [-15, -55, 16], [-25, -10, 14]
+                ];
+            }
+
+            points.forEach(([px, pz, py]) => {
+                const baseH = mode === 'sea' ? 0 : Math.max(0, getNaturalTerrainHeight(px, pz));
+                const worldY = mode === 'air' ? py : baseH + py;
+                const mesh = createGoldCoinMesh(mode === 'air');
+                mesh.position.set(px, worldY, pz);
+                scene.add(mesh);
+                parkourCoins.push({ mesh, pos: new THREE.Vector3(px, worldY, pz) });
+            });
+
+            activeParkour = {
+                mode,
+                title,
+                total: points.length,
+                collected: 0,
+                timer: duration,
+                reward
+            };
+
+            document.getElementById('pk-icon').innerText = icon;
+            document.getElementById('pk-title').innerText = title;
+            document.getElementById('pk-score').innerText = `0/${points.length}`;
+            document.getElementById('pk-timer').innerText = duration;
+            document.getElementById('parkour-hud').classList.remove('hidden');
+            playSfx('spawn');
+            showToast(`🏁 ${title} Başladı! Süre bitmeden 10 Altını toplayın!`, 'text-yellow-300');
+        }
+
+        function stopParkourChallenge(completed = false) {
+            while (parkourCoins.length > 0) {
+                const c = parkourCoins.pop();
+                scene.remove(c.mesh);
+            }
+            document.getElementById('parkour-hud').classList.add('hidden');
+            if (completed && activeParkour) {
+                state.money += activeParkour.reward;
+                updateHUD();
+                triggerUrasRoyalSurprise();
+                showToast(`🏆 TEBRİKLER! ${activeParkour.title} Tamamlandı! +${activeParkour.reward} TL Ödül Kazandınız!`, 'text-emerald-300');
+            }
+            activeParkour = null;
+        }
+
+        // [Y] Tuşu ile Parkur Menüsünü Açma
+        window.addEventListener('keydown', e => {
+            if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+            if (e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                toggleParkourModal();
+            }
+        });
+
+        // Parkur Altınlarını Döndürme, Toplama ve Süre Kontrolü
+        setInterval(() => {
+            if (!activeParkour) return;
+            activeParkour.timer -= 0.05;
+            const timerEl = document.getElementById('pk-timer');
+            if (timerEl) timerEl.innerText = Math.max(0, Math.ceil(activeParkour.timer));
+
+            if (activeParkour.timer <= 0) {
+                showToast('⏰ Süre Doldu! Altın Parkurunu tekrar deneyebilirsiniz.', 'text-rose-400');
+                playSfx('remove');
+                stopParkourChallenge(false);
+                return;
+            }
+
+            const pPos = state.inVehicle ? state.inVehicle.pos : player.pos;
+            const hitRadius = activeParkour.mode === 'air' ? 6.8 : 4.8;
+
+            for (let i = parkourCoins.length - 1; i >= 0; i--) {
+                const c = parkourCoins[i];
+                c.mesh.userData.coin.rotation.y += 0.09;
+                const dHorizontal = Math.hypot(pPos.x - c.pos.x, pPos.z - c.pos.z);
+                const dVertical = Math.abs(pPos.y - c.pos.y);
+
+                if (dHorizontal < hitRadius && dVertical < (activeParkour.mode === 'air' ? 6.5 : 4.5)) {
+                    scene.remove(c.mesh);
+                    parkourCoins.splice(i, 1);
+                    activeParkour.collected += 1;
+                    state.money += 50; // Her altın anında +50 TL verir
+                    updateHUD();
+                    playSfx('place');
+                    document.getElementById('pk-score').innerText = `${activeParkour.collected}/${activeParkour.total}`;
+
+                    if (activeParkour.collected >= activeParkour.total) {
+                        stopParkourChallenge(true);
+                        return;
+                    } else {
+                        showToast(`🪙 Altın Toplandı (${activeParkour.collected}/${activeParkour.total})! +50 TL`, 'text-yellow-300');
+                    }
+                }
+            }
+        }, 50);
+
         window.onload = function () {
-            // Eğer daha önce isim girilmediyse varsayılan ismi "Kral_Uras" yap
             if (!localStorage.getItem('cw_nick')) {
                 myNickname = 'Kral_Uras';
                 localStorage.setItem('cw_nick', myNickname);
