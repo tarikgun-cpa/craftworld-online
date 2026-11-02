@@ -1054,11 +1054,16 @@
             for (let rz = -52; rz <= 52; rz += GRID) {
                 if (rz !== 0) placeSingleBlock('road', 68, 0, rz, 0, null, true);
             }
-            // Streetlights along the Main Boulevard
+            
+            // Streetlights along the Main Boulevard + Open Parking Lot & Airport Lighting
             for (let lx = 12; lx <= 164; lx += 24) {
                 placeSingleBlock('street_light', lx, 0, -4, 0, null, true);
                 placeSingleBlock('street_light', lx, 0, 4, 2, null, true);
             }
+            // Açık Otopark aydınlatma direkleri (Otoparktaki araçları gece net aydınlatır!)
+            [[-64, -22], [-40, -22], [-16, -22], [-64, 22], [-40, 22], [-16, 22], [-40, 0]].forEach(([px, pz]) => {
+                placeSingleBlock('street_light', px, 0, pz, pz < 0 ? 0 : 2, null, true);
+            });
 
             // Public Buildings on the North side of Main Boulevard (Doors face South +Z toward the road!)
             buildPrefabStructure('prefab_police', 28, -16, true);
@@ -1653,7 +1658,65 @@
                 }
             }
 
-            group.userData = { wheels, rotors };
+            // Kara araçları için gece otomatik yanan Uzun Far Hüzmeleri (Headlight Beams)
+            let headlightGroup = null;
+            if (spec.domain === 'land') {
+                headlightGroup = new THREE.Group();
+                if (!window._headlightBeamTex) {
+                    const hc = document.createElement('canvas');
+                    hc.width = 256;
+                    hc.height = 512;
+                    const hctx = hc.getContext('2d');
+                    const hgrad = hctx.createLinearGradient(128, 0, 128, 512);
+                    hgrad.addColorStop(0.0, 'rgba(254, 249, 195, 0.55)');
+                    hgrad.addColorStop(0.35, 'rgba(254, 240, 138, 0.22)');
+                    hgrad.addColorStop(1.0, 'rgba(254, 240, 138, 0.0)');
+                    hctx.fillStyle = hgrad;
+                    hctx.beginPath();
+                    hctx.moveTo(105, 0);
+                    hctx.lineTo(151, 0);
+                    hctx.lineTo(256, 512);
+                    hctx.lineTo(0, 512);
+                    hctx.closePath();
+                    hctx.fill();
+                    window._headlightBeamTex = new THREE.CanvasTexture(hc);
+                }
+
+                const beamGeo = new THREE.PlaneGeometry(9.5, 24.0);
+                const beamMat = new THREE.MeshBasicMaterial({
+                    map: window._headlightBeamTex,
+                    transparent: true,
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide
+                });
+                const groundBeam = new THREE.Mesh(beamGeo, beamMat);
+                groundBeam.rotation.x = -Math.PI / 2;
+                groundBeam.position.set(0, 0.29, 14.5);
+                headlightGroup.add(groundBeam);
+
+                // 3B Hacimsel Far Konileri (Sol ve Sağ Far)
+                const coneGeo = new THREE.ConeGeometry(2.2, 16.0, 12, 1, true);
+                const coneMat = new THREE.MeshBasicMaterial({
+                    color: 0xfef08a,
+                    transparent: true,
+                    opacity: 0.11,
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide
+                });
+                [-0.85, 0.85].forEach(lx => {
+                    const cone = new THREE.Mesh(coneGeo, coneMat);
+                    cone.rotation.x = -Math.PI / 2;
+                    cone.position.set(lx, 0.78, 10.2);
+                    headlightGroup.add(cone);
+                });
+
+                headlightGroup.visible = state.isNight;
+                group.add(headlightGroup);
+            }
+
+            group.userData = { wheels, rotors, headlightGroup };
             return group;
         }
 
@@ -1792,9 +1855,9 @@
         function isPointIlluminatedByLamp(x, z) {
             for (const s of placedStructures) {
                 if (s.type === 'street_light') {
-                    if (Math.hypot(x - s.pos.x, z - s.pos.z) <= 18.5) {
-                        return true;
-                    }
+                    if (Math.hypot(x - s.pos.x, z - s.pos.z) <= 18.5) return true;
+                } else if (s.type === 'window') {
+                    if (Math.hypot(x - s.pos.x, z - s.pos.z) <= 9.0) return true;
                 }
             }
             return false;
@@ -1852,12 +1915,43 @@
             const sunAngle = ((hour - 6.0) / 24.0) * Math.PI * 2;
             dirLight.position.set(Math.cos(sunAngle) * 220, Math.max(30, Math.sin(sunAngle) * 260), 120);
 
-            // Toggle Streetlight Ground Safe-Zone Halos at Night
+            // Gece Sokak Lambalarını, Bina Pencerelerinin İç Işığını ve Kara Araçlarının Farlarını Otomatik Yak!
             placedStructures.forEach(s => {
-                if (s.type === 'street_light' && s.mesh.userData.lightHalo) {
+                if (s.mesh.userData.lightHalo) {
                     s.mesh.userData.lightHalo.visible = state.isNight;
                 }
+                if (s.type === 'window' && s.mesh.userData.windowGlass) {
+                    const gMat = s.mesh.userData.windowGlass.material;
+                    gMat.color.setHex(state.isNight ? 0xfef08a : 0x38bdf8);
+                    gMat.emissive.setHex(state.isNight ? 0xf59e0b : 0x000000);
+                    gMat.emissiveIntensity = state.isNight ? 0.95 : 0.0;
+                    gMat.opacity = state.isNight ? 0.92 : 0.55;
+                }
             });
+
+            // Kara araçlarının far hüzmelerini gece otomatik aç, gündüz kapat
+            vehicles.forEach(v => {
+                if (v.mesh.userData.headlightGroup) {
+                    v.mesh.userData.headlightGroup.visible = state.isNight && !v.broken;
+                }
+            });
+
+            // Oyuncunun sürdüğü kara aracına gerçek dinamik 3B Far Işığı (PointLight) ekle
+            if (!window._activeCarLight) {
+                window._activeCarLight = new THREE.PointLight(0xfffbeb, 0, 38, 1.5);
+                scene.add(window._activeCarLight);
+            }
+            if (state.isNight && state.inVehicle && state.inVehicle.spec.domain === 'land' && !state.inVehicle.broken) {
+                const cv = state.inVehicle;
+                window._activeCarLight.intensity = 1.65;
+                window._activeCarLight.position.set(
+                    cv.pos.x + Math.sin(cv.angle) * 8.5,
+                    cv.pos.y + 2.2,
+                    cv.pos.z + Math.cos(cv.angle) * 8.5
+                );
+            } else {
+                window._activeCarLight.intensity = 0;
+            }
 
             // Check if player is inside a Streetlight Safe Zone
             const pPos = state.inVehicle ? state.inVehicle.pos : player.pos;
@@ -2603,9 +2697,50 @@
                 sill.position.set(0, 1.2, EDGE);
                 const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.0, 0.28), woodMat);
                 mullion.position.set(0, 2.2, EDGE);
-                const glass = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.0, 0.14), new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 }));
+
+                const glassMat = new THREE.MeshStandardMaterial({
+                    color: state.isNight ? 0xfef08a : 0x38bdf8,
+                    emissive: state.isNight ? 0xf59e0b : 0x000000,
+                    emissiveIntensity: state.isNight ? 0.95 : 0.0,
+                    transparent: true,
+                    opacity: state.isNight ? 0.92 : 0.55,
+                    roughness: 0.2
+                });
+                const glass = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.0, 0.18), glassMat);
                 glass.position.set(0, 2.2, EDGE);
-                group.add(bottomW, topW, sideL, sideR, sill, mullion, glass);
+                glass.userData.isSkirt = true;
+                group.userData.windowGlass = glass;
+
+                // Bina pencerelerinin gece dışarıya/zemine vurduğu sıcak çevre aydınlatması
+                if (!window._softLampTex) {
+                    const lc = document.createElement('canvas');
+                    lc.width = 256;
+                    lc.height = 256;
+                    const lctx = lc.getContext('2d');
+                    const grad = lctx.createRadialGradient(128, 128, 6, 128, 128, 124);
+                    grad.addColorStop(0.0, 'rgba(254, 240, 138, 0.32)');
+                    grad.addColorStop(0.5, 'rgba(253, 224, 71, 0.14)');
+                    grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+                    lctx.fillStyle = grad;
+                    lctx.fillRect(0, 0, 256, 256);
+                    window._softLampTex = new THREE.CanvasTexture(lc);
+                }
+                const winLightHalo = new THREE.Mesh(
+                    new THREE.PlaneGeometry(14, 14),
+                    new THREE.MeshBasicMaterial({
+                        map: window._softLampTex,
+                        transparent: true,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    })
+                );
+                winLightHalo.rotation.x = -Math.PI / 2;
+                winLightHalo.position.set(0, 0.27, EDGE + 2.2);
+                winLightHalo.visible = state.isNight;
+                winLightHalo.userData.isSkirt = true;
+                group.userData.lightHalo = winLightHalo;
+
+                group.add(bottomW, topW, sideL, sideR, sill, mullion, glass, winLightHalo);
             } else if (itemId === 'stairs') {
                 const stepMat = new THREE.MeshStandardMaterial({ color: customColorHex || 0x92400e, roughness: 0.7 });
                 const railMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 });
@@ -2786,16 +2921,18 @@
                 }
 
                 const lightHalo = new THREE.Mesh(
-                    new THREE.PlaneGeometry(34, 34),
+                    new THREE.PlaneGeometry(36, 36),
                     new THREE.MeshBasicMaterial({
                         map: window._softLampTex,
                         transparent: true,
                         depthWrite: false,
+                        polygonOffset: true,
+                        polygonOffsetFactor: -2,
                         blending: THREE.AdditiveBlending
                     })
                 );
                 lightHalo.rotation.x = -Math.PI / 2;
-                lightHalo.position.y = 0.12;
+                lightHalo.position.y = 0.28;
                 lightHalo.visible = state.isNight;
                 lightHalo.userData.isSkirt = true; // Bina içi X-Ray saydamlaştırmasının bu ışığı bozmasını engeller
                 group.userData.lightHalo = lightHalo;
