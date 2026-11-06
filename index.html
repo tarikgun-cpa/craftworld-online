@@ -1643,22 +1643,79 @@
         }
 
         // ====================================================
-        // KENNEY-STYLE HD 25 VEHICLE MODEL GENERATOR
+        // 🏎️✈️🚢 ULTRA-HD AERODİNAMİK 25 ARAÇ MODELLEME MOTORU (SIFIR KASMA ÖNBELLEKLİ)
         // ====================================================
-        function createWheelMesh(radius = 0.52, width = 0.36) {
+        const VEH_GEO_CACHE = {};
+        constemergencyStrobes = []; // Gece/Gündüz çakar lambaları
+
+        function createExtrudedProfileGeo(cacheKey, points2D, width, bevelSize = 0.08) {
+            const fullKey = `${cacheKey}_${width}_${bevelSize}`;
+            if (VEH_GEO_CACHE[fullKey]) return VEH_GEO_CACHE[fullKey];
+
+            const shape = new THREE.Shape();
+            shape.moveTo(points2D[0][0], points2D[0][1]);
+            for (let i = 1; i < points2D.length; i++) {
+                shape.lineTo(points2D[i][0], points2D[i][1]);
+            }
+            shape.closePath();
+
+            const extrudeDepth = Math.max(0.2, width - bevelSize * 2);
+            const geo = new THREE.ExtrudeGeometry(shape, {
+                depth: extrudeDepth,
+                bevelEnabled: true,
+                bevelSegments: 3,
+                steps: 1,
+                bevelSize: bevelSize,
+                bevelThickness: bevelSize
+            });
+            // Extrude X=Z(uzunluk), Y=Y(yükseklik), Z=X(genişlik) -> Aracın +Z yönüne bakması için döndür ve ortala
+            geo.translate(0, 0, -extrudeDepth / 2);
+            geo.rotateY(Math.PI / 2);
+            geo.computeVertexNormals();
+            VEH_GEO_CACHE[fullKey] = geo;
+            return geo;
+        }
+
+        function createWheelMesh(radius = 0.52, width = 0.38, isSport = false) {
             const wg = new THREE.Group();
-            const tire = new THREE.Mesh(
-                new THREE.CylinderGeometry(radius, radius, width, 16),
-                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 })
-            );
+            const tireMat = getSharedMaterial(null, 0x111827, 0.85, 0.1);
+            const rimMat = getSharedMaterial(null, isSport ? 0xfacc15 : 0xe2e8f0, 0.2, 0.9);
+            const caliperMat = getSharedMaterial(null, 0xef4444, 0.3, 0.5);
+
+            // Sırt desenli dolgun lastik
+            const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 20), tireMat);
             tire.rotation.z = Math.PI / 2;
-            const rim = new THREE.Mesh(
-                new THREE.CylinderGeometry(radius * 0.58, radius * 0.58, width + 0.04, 12),
-                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.7, roughness: 0.3 })
-            );
+
+            // Çelik Jant Göbeği
+            const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.65, radius * 0.65, width + 0.03, 16), rimMat);
             rim.rotation.z = Math.PI / 2;
-            wg.add(tire, rim);
+
+            // 5 Kollu Spor Jant Telleri
+            for (let i = 0; i < 5; i++) {
+                const spoke = new THREE.Mesh(new THREE.BoxGeometry(width + 0.05, radius * 1.18, 0.08), rimMat);
+                spoke.rotation.x = (i * Math.PI) / 5;
+                wg.add(spoke);
+            }
+
+            // Kırmızı Spor Fren Kaliperi
+            const caliper = new THREE.Mesh(new THREE.BoxGeometry(width + 0.02, radius * 0.45, radius * 0.45), caliperMat);
+            caliper.position.set(0, radius * 0.28, 0);
+
+            wg.add(tire, rim, caliper);
             return wg;
+        }
+
+        function addEmergencyLightbar(group, yPos, zPos) {
+            const barGroup = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.1, 0.36), getSharedMaterial(null, 0xe2e8f0, 0.2, 0.8));
+            const redLight = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.22, 0.32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            redLight.position.set(-0.36, 0.12, 0);
+            const blueLight = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.22, 0.32), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
+            blueLight.position.set(0.36, 0.12, 0);
+            barGroup.add(base, redLight, blueLight);
+            barGroup.position.set(0, yPos, zPos);
+            group.add(barGroup);
+            group.userData.strobePair = { redLight, blueLight };
         }
 
         function createVehicleMesh(spec) {
@@ -1668,214 +1725,541 @@
 
             const bodyMat = new THREE.MeshPhysicalMaterial({
                 color: spec.color,
-                metalness: 0.45,
-                roughness: 0.22,
-                clearcoat: 0.85,
-                clearcoatRoughness: 0.12
+                metalness: 0.55,
+                roughness: 0.18,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.08
             });
-            const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.35, 0.15);
-            const darkMat = getSharedMaterial(null, 0x1e293b, 0.65, 0.25);
-            const chromeMat = getSharedMaterial(null, 0xe2e8f0, 0.15, 0.9);
-            const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0f172a, emissive: 0x0284c7, emissiveIntensity: 0.18, transparent: true, opacity: 0.68, roughness: 0.08, metalness: 0.2 });
-            const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3 });
+            const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.3, 0.2);
+            const darkMat = getSharedMaterial(null, 0x0f172a, 0.7, 0.2);
+            const trimMat = getSharedMaterial(null, 0x1e293b, 0.5, 0.4);
+            const chromeMat = getSharedMaterial(null, 0xf1f5f9, 0.1, 0.95);
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0x0f172a,
+                emissive: 0x0284c7,
+                emissiveIntensity: 0.22,
+                transparent: true,
+                opacity: 0.78,
+                roughness: 0.05,
+                metalness: 0.3
+            });
+            const redMat = getSharedMaterial(null, 0xdc2626, 0.25, 0.2);
+            const yellowMat = getSharedMaterial(null, 0xfacc15, 0.25, 0.2);
             const headLightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-            const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
 
-            if (spec.id === 'ambulance') {
-                const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 5.8), darkMat);
-                chassis.position.y = 0.65;
-                const cab = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.3, 2.0), whiteMat);
-                cab.position.set(0, 1.5, 1.7);
-                const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.85, 0.2), glassMat);
-                windshield.position.set(0, 1.65, 2.71);
-                const box = new THREE.Mesh(new THREE.BoxGeometry(2.75, 2.2, 3.8), whiteMat);
-                box.position.set(0, 1.9, -0.9);
-                const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.38, 3.84), redMat);
-                stripe.position.set(0, 1.4, -0.9);
-                const crossV = new THREE.Mesh(new THREE.BoxGeometry(2.82, 0.9, 0.28), redMat);
-                crossV.position.set(0, 2.2, -0.9);
-                const crossH = new THREE.Mesh(new THREE.BoxGeometry(2.82, 0.28, 0.9), redMat);
-                crossH.position.set(0, 2.2, -0.9);
-                const siren = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.28, 0.45), redMat);
-                siren.position.set(0, 3.1, 0.5);
-                group.add(chassis, cab, windshield, box, stripe, crossV, crossH, siren);
+            // =========================================================
+            // 1. KARA TAŞITLARI (GERÇEK AERODİNAMİK KESİT + DETAYLAR)
+            // =========================================================
+            if (spec.domain === 'land' && spec.id !== 'tank') {
+                let profile = [];
+                let width = 2.35;
+                let len = 4.9;
+                let wheelR = 0.48;
+                let wheelZ = [1.5, -1.5];
 
-                [[-1.3, 1.8], [1.3, 1.8], [-1.3, -1.6], [1.3, -1.6]].forEach(([wx, wz]) => {
-                    const w = createWheelMesh(0.55, 0.38);
-                    w.position.set(wx, 0.55, wz);
-                    wheels.push(w);
-                    group.add(w);
-                });
-            } else if (spec.domain === 'land' && spec.id !== 'tank') {
-                const isHeavy = ['truck', 'semi', 'firetruck', 'bus', 'mil_truck'].includes(spec.id);
-                const len = spec.id === 'semi' ? 8.2 : (isHeavy ? 6.6 : 4.8);
-                const width = isHeavy ? 2.7 : 2.35;
-                const cabH = spec.id === 'sport' ? 0.85 : (isHeavy ? 1.8 : 1.15);
-
-                const base = new THREE.Mesh(new THREE.BoxGeometry(width, 0.75, len), bodyMat);
-                base.position.y = 0.75;
-                base.castShadow = true;
-                group.add(base);
-
-                const cabin = new THREE.Mesh(
-                    new THREE.BoxGeometry(width - 0.15, cabH, isHeavy ? (spec.id === 'bus' ? len - 0.4 : 2.2) : len * 0.55),
-                    spec.id === 'police' ? whiteMat : bodyMat
-                );
-                cabin.position.set(0, 0.75 + cabH / 2 + 0.2, isHeavy && spec.id !== 'bus' ? len / 2 - 1.2 : -0.1);
-                cabin.castShadow = true;
-                group.add(cabin);
-
-                const glass = new THREE.Mesh(
-                    new THREE.BoxGeometry(width - 0.08, cabH * 0.65, isHeavy && spec.id !== 'bus' ? 2.25 : len * 0.58),
-                    glassMat
-                );
-                glass.position.copy(cabin.position);
-                group.add(glass);
-
-                if (spec.id === 'truck' || spec.id === 'semi' || spec.id === 'mil_truck') {
-                    const cargo = new THREE.Mesh(
-                        new THREE.BoxGeometry(width + 0.1, 2.3, len - 2.6),
-                        spec.id === 'mil_truck' ? bodyMat : whiteMat
-                    );
-                    cargo.position.set(0, 2.1, -1.1);
-                    cargo.castShadow = true;
-                    group.add(cargo);
-                } else if (spec.id === 'firetruck') {
-                    const tankBox = new THREE.Mesh(new THREE.BoxGeometry(width, 1.6, len - 2.5), redMat);
-                    tankBox.position.set(0, 1.8, -1.0);
-                    const ladder = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.3, len - 1.0), whiteMat);
-                    ladder.position.set(0, 2.85, -0.4);
-                    group.add(tankBox, ladder);
-                } else if (spec.id === 'taxi') {
-                    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.4), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
-                    sign.position.set(0, 2.05, 0);
-                    group.add(sign);
-                } else if (spec.id === 'police') {
-                    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.24, 0.38), new THREE.MeshBasicMaterial({ color: 0x3b82f6 }));
-                    bar.position.set(0, 2.05, 0);
-                    group.add(bar);
-                } else if (spec.id === 'sport') {
-                    const spoiler = new THREE.Mesh(new THREE.BoxGeometry(width, 0.15, 0.55), darkMat);
-                    spoiler.position.set(0, 1.35, -len / 2 + 0.35);
-                    group.add(spoiler);
+                if (spec.id === 'sport') {
+                    width = 2.45; len = 5.0; wheelR = 0.48; wheelZ = [1.55, -1.55];
+                    // Alçak Burunlu Süper Spor Araba Kesiti (Lamborghini/Ferrari tarzı)
+                    profile = [
+                        [-2.5, 0.35], [2.5, 0.32], [2.6, 0.62], [1.55, 0.95],
+                        [0.45, 1.52], [-0.85, 1.50], [-2.15, 1.08], [-2.55, 0.95]
+                    ];
+                } else if (['suv', 'mil_jeep'].includes(spec.id)) {
+                    width = 2.48; len = 5.0; wheelR = 0.58; wheelZ = [1.55, -1.55];
+                    // Kaslı Yüksek 4x4 Jeep / SUV Kesiti
+                    profile = [
+                        [-2.45, 0.48], [2.45, 0.48], [2.52, 1.18], [1.25, 1.28],
+                        [0.65, 2.05], [-2.15, 2.05], [-2.45, 1.25]
+                    ];
+                } else if (spec.id === 'pickup') {
+                    width = 2.45; len = 5.4; wheelR = 0.56; wheelZ = [1.7, -1.65];
+                    // Açık Kasalı Amerikan Pickup Kamyonet Kesiti
+                    profile = [
+                        [-2.7, 0.45], [2.65, 0.45], [2.72, 1.15], [1.4, 1.25],
+                        [0.8, 2.02], [-0.45, 2.02], [-0.5, 1.22], [-2.68, 1.22]
+                    ];
+                } else if (['bus', 'minibus'].includes(spec.id)) {
+                    const isBus = spec.id === 'bus';
+                    width = isBus ? 2.75 : 2.45; len = isBus ? 7.4 : 5.4; wheelR = 0.56;
+                    wheelZ = isBus ? [2.3, -2.3] : [1.65, -1.65];
+                    const hl = len / 2;
+                    profile = [
+                        [-hl, 0.42], [hl, 0.42], [hl + 0.08, 1.3], [hl - 0.35, 2.55],
+                        [-hl + 0.15, 2.55], [-hl, 1.4]
+                    ];
+                } else if (['truck', 'semi', 'firetruck', 'mil_truck', 'tow', 'ambulance'].includes(spec.id)) {
+                    width = 2.65;
+                    len = spec.id === 'semi' ? 8.4 : 6.5;
+                    wheelR = 0.58;
+                    wheelZ = spec.id === 'semi' ? [2.9, -0.4, -2.9] : [1.95, -1.85];
+                    const hl = len / 2;
+                    // Yüksek Kamyon/Tır Çekici Kabini + Şasi Kesiti
+                    profile = [
+                        [-hl, 0.48], [hl, 0.48], [hl + 0.06, 1.38], [hl - 0.35, 2.38],
+                        [hl - 2.1, 2.38], [hl - 2.15, 1.05], [-hl, 1.05]
+                    ];
+                } else {
+                    // Sedan, Taksi, Polis Aracı Aerodinamik Kesiti
+                    width = 2.35; len = 4.9; wheelR = 0.49; wheelZ = [1.5, -1.5];
+                    profile = [
+                        [-2.45, 0.38], [2.45, 0.38], [2.52, 0.92], [1.35, 1.10],
+                        [0.55, 1.78], [-1.05, 1.78], [-1.75, 1.12], [-2.45, 1.02]
+                    ];
                 }
 
-                // Ön ve Arka Tamponlar + Krom Ön Panjur Izgarası + Plaka + Yan Aynalar
-                const bumperF = new THREE.Mesh(new THREE.BoxGeometry(width + 0.12, 0.32, 0.35), darkMat);
-                bumperF.position.set(0, 0.48, len / 2 + 0.08);
-                const bumperR = bumperF.clone();
-                bumperR.position.set(0, 0.48, -len / 2 - 0.08);
-                const grille = new THREE.Mesh(new THREE.BoxGeometry(width * 0.48, 0.34, 0.14), chromeMat);
-                grille.position.set(0, 0.78, len / 2 + 0.03);
-                const plate = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.18, 0.16), whiteMat);
-                plate.position.set(0, 0.48, len / 2 + 0.19);
+                // Ana Aerodinamik Gövde
+                const mainColorMat = spec.id === 'police' ? darkMat : (spec.id === 'ambulance' ? whiteMat : bodyMat);
+                const hullGeo = createExtrudedProfileGeo(`hull_${spec.id}`, profile, width, 0.10);
+                const hullMesh = new THREE.Mesh(hullGeo, mainColorMat);
+                hullMesh.castShadow = true;
+                hullMesh.receiveShadow = true;
+                group.add(hullMesh);
 
-                // Ayrı Sol/Sağ Farlar ve Stop Lambaları
-                [-width * 0.34, width * 0.34].forEach(lx => {
-                    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.24, 0.14), headLightMat);
-                    hl.position.set(lx, 0.82, len / 2 + 0.03);
-                    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.24, 0.14), tailLightMat);
-                    tl.position.set(lx, 0.82, -len / 2 - 0.03);
-                    group.add(hl, tl);
+                // Polis Aracı Beyaz Kapılar & Tavan
+                if (spec.id === 'police') {
+                    const doorStripe = new THREE.Mesh(new THREE.BoxGeometry(width + 0.05, 0.72, 2.1), whiteMat);
+                    doorStripe.position.set(0, 0.85, -0.1);
+                    group.add(doorStripe);
+                    addEmergencyLightbar(group, 1.88, -0.2);
+                } else if (spec.id === 'taxi') {
+                    // Taksi Damalı Şerit + Işıklı TAKSİ Tabelası
+                    const taxiSign = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.28, 0.38), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+                    taxiSign.position.set(0, 1.92, -0.1);
+                    const checker = new THREE.Mesh(new THREE.BoxGeometry(width + 0.05, 0.16, 3.2), darkMat);
+                    checker.position.set(0, 0.88, 0);
+                    group.add(taxiSign, checker);
+                } else if (spec.id === 'sport') {
+                    // Yarış Şeritleri + Karbon Arka Spoiler Kanadı + Hava Kanalları
+                    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 4.6), whiteMat);
+                    stripe.position.set(0, 1.12, 0);
+                    const wingPillarL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.35), darkMat);
+                    wingPillarL.position.set(-0.75, 1.18, -2.25);
+                    const wingPillarR = wingPillarL.clone();
+                    wingPillarR.position.x = 0.75;
+                    const spoilerWing = new THREE.Mesh(new THREE.BoxGeometry(width + 0.15, 0.12, 0.58), darkMat);
+                    spoilerWing.position.set(0, 1.42, -2.32);
+                    group.add(stripe, wingPillarL, wingPillarR, spoilerWing);
+                }
+
+                // Eğimli Ön Cam, Arka Cam ve Yan Pencereler
+                if (['sedan', 'sport', 'police', 'taxi', 'suv', 'mil_jeep', 'pickup'].includes(spec.id)) {
+                    const isTall = ['suv', 'mil_jeep', 'pickup'].includes(spec.id);
+                    const isSport = spec.id === 'sport';
+                    const winY = isSport ? 1.24 : (isTall ? 1.66 : 1.44);
+                    const windshield = new THREE.Mesh(new THREE.BoxGeometry(width - 0.26, 0.68, 0.12), glassMat);
+                    windshield.position.set(0, winY, isSport ? 1.02 : 0.96);
+                    windshield.rotation.x = isSport ? -0.85 : -0.58;
+
+                    const sideWin = new THREE.Mesh(new THREE.BoxGeometry(width + 0.03, isSport ? 0.42 : 0.55, isTall ? 2.4 : 1.75), glassMat);
+                    sideWin.position.set(0, winY, isTall ? -0.45 : -0.25);
+                    group.add(windshield, sideWin);
+
+                    if (spec.id === 'suv' || spec.id === 'mil_jeep') {
+                        // Arkada Asılı Yedek Stepne Lastiği + Tavan Portbagaj Rayları
+                        const spare = createWheelMesh(0.48, 0.3, false);
+                        spare.rotation.z = Math.PI / 2;
+                        spare.position.set(0, 1.25, -2.58);
+                        group.add(spare);
+                    }
+                    if (spec.id === 'pickup') {
+                        // Pickup Rollbar Demirleri
+                        const rollbar = new THREE.Mesh(new THREE.BoxGeometry(width - 0.2, 0.75, 0.2), trimMat);
+                        rollbar.position.set(0, 1.55, -0.65);
+                        group.add(rollbar);
+                    }
+                } else if (['bus', 'minibus'].includes(spec.id)) {
+                    // Otobüs Panoramik Yan Camlar + Ön Cam + Dijital Hat Tabelası
+                    const hl = len / 2;
+                    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(width - 0.22, 1.05, 0.14), glassMat);
+                    frontGlass.position.set(0, 1.85, hl - 0.12);
+                    frontGlass.rotation.x = -0.22;
+                    const sideWindows = new THREE.Mesh(new THREE.BoxGeometry(width + 0.04, 0.88, len - 1.2), glassMat);
+                    sideWindows.position.set(0, 1.88, -0.15);
+                    const routeBoard = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.26, 0.16), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+                    routeBoard.position.set(0, 2.42, hl - 0.2);
+                    const acUnit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.28, 2.2), whiteMat);
+                    acUnit.position.set(0, 2.68, -0.3);
+                    group.add(frontGlass, sideWindows, routeBoard, acUnit);
+                } else {
+                    // Kamyon / Tır / Ambulans / İtfaiye / Çekici Ön Kabin Camları ve Arka Üst Yapıları
+                    const hl = len / 2;
+                    const cabGlass = new THREE.Mesh(new THREE.BoxGeometry(width - 0.2, 0.82, 0.14), glassMat);
+                    cabGlass.position.set(0, 1.85, hl - 0.15);
+                    cabGlass.rotation.x = -0.25;
+                    const cabSideGlass = new THREE.Mesh(new THREE.BoxGeometry(width + 0.04, 0.72, 1.35), glassMat);
+                    cabSideGlass.position.set(0, 1.85, hl - 1.05);
+                    group.add(cabGlass, cabSideGlass);
+
+                    // Kamyon Krom Dik Egzoz Boruları
+                    [-width / 2 - 0.08, width / 2 + 0.08].forEach(ex => {
+                        const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 2.3, 10), chromeMat);
+                        stack.position.set(ex, 1.85, hl - 2.05);
+                        group.add(stack);
+                    });
+
+                    if (spec.id === 'ambulance') {
+                        const medBox = new THREE.Mesh(new THREE.BoxGeometry(width + 0.12, 2.05, 3.9), whiteMat);
+                        medBox.position.set(0, 1.85, -1.1);
+                        const redStripe = new THREE.Mesh(new THREE.BoxGeometry(width + 0.16, 0.36, 3.94), redMat);
+                        redStripe.position.set(0, 1.35, -1.1);
+                        const crossV = new THREE.Mesh(new THREE.BoxGeometry(width + 0.18, 0.95, 0.3), redMat);
+                        crossV.position.set(0, 2.0, -1.1);
+                        const crossH = new THREE.Mesh(new THREE.BoxGeometry(width + 0.18, 0.3, 0.95), redMat);
+                        crossH.position.set(0, 2.0, -1.1);
+                        group.add(medBox, redStripe, crossV, crossH);
+                        addEmergencyLightbar(group, 2.95, 1.4);
+                    } else if (spec.id === 'firetruck') {
+                        const fireBody = new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, 1.65, 3.9), redMat);
+                        fireBody.position.set(0, 1.65, -1.1);
+                        const shutter = new THREE.Mesh(new THREE.BoxGeometry(width + 0.14, 1.1, 2.8), chromeMat);
+                        shutter.position.set(0, 1.65, -1.1);
+                        // Döner Tavan Yangın Merdiveni ve Su Topu
+                        const ladderBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.35, 12), darkMat);
+                        ladderBase.position.set(0, 2.6, -1.2);
+                        const ladderRail = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.28, 5.2), whiteMat);
+                        ladderRail.position.set(0, 2.88, -0.4);
+                        ladderRail.rotation.x = 0.08;
+                        group.add(fireBody, shutter, ladderBase, ladderRail);
+                        addEmergencyLightbar(group, 2.55, 1.5);
+                    } else if (spec.id === 'tow') {
+                        // Vinçli Kurtarıcı Çekici Kolu ve Kancası
+                        const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 3.8, 10), yellowMat);
+                        boom.position.set(0, 2.1, -1.2);
+                        boom.rotation.x = -0.65;
+                        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), darkMat);
+                        cable.position.set(0, 2.3, -2.7);
+                        group.add(boom, cable);
+                        addEmergencyLightbar(group, 2.52, 1.4);
+                    } else {
+                        // Kamyon, Tır ve Askeri Kamyon Dorsesi
+                        const cargoLen = len - 2.5;
+                        const cargoMat = spec.id === 'mil_truck' ? bodyMat : (spec.id === 'semi' ? whiteMat : bodyMat);
+                        const trailer = new THREE.Mesh(new THREE.BoxGeometry(width + 0.1, 2.25, cargoLen), cargoMat);
+                        trailer.position.set(0, 2.0, -1.15);
+                        trailer.castShadow = true;
+                        const stripe = new THREE.Mesh(new THREE.BoxGeometry(width + 0.14, 0.28, cargoLen * 0.85), yellowMat);
+                        stripe.position.set(0, 1.65, -1.15);
+                        group.add(trailer, stripe);
+                    }
+                }
+
+                // Ön Krom Izgara, Tamponlar, Çift Egzoz, Yan Aynalar ve LED Farlar
+                const hl = len / 2;
+                const bumperF = new THREE.Mesh(new THREE.BoxGeometry(width + 0.14, 0.34, 0.38), trimMat);
+                bumperF.position.set(0, 0.45, hl + 0.06);
+                const bumperR = bumperF.clone();
+                bumperR.position.set(0, 0.45, -hl - 0.06);
+                const grille = new THREE.Mesh(new THREE.BoxGeometry(width * 0.52, 0.38, 0.12), chromeMat);
+                grille.position.set(0, 0.76, hl + 0.08);
+
+                [-width * 0.35, width * 0.35].forEach(lx => {
+                    const fLight = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.24, 0.14), headLightMat);
+                    fLight.position.set(lx, 0.82, hl + 0.08);
+                    const rLight = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.24, 0.14), tailLightMat);
+                    rLight.position.set(lx, 0.82, -hl - 0.08);
+                    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.45, 10), chromeMat);
+                    exhaust.rotation.x = Math.PI / 2;
+                    exhaust.position.set(lx * 0.8, 0.34, -hl - 0.12);
+                    group.add(fLight, rLight, exhaust);
                 });
 
-                // Sol/Sağ Yan Dikiz Aynaları
-                [-width / 2 - 0.12, width / 2 + 0.12].forEach(mx => {
-                    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.16), bodyMat);
-                    mirror.position.set(mx, 1.35, cabin.position.z + 0.55);
+                [-width / 2 - 0.14, width / 2 + 0.14].forEach(mx => {
+                    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 0.18), bodyMat);
+                    mirror.position.set(mx, 1.32, hl - 1.45);
                     group.add(mirror);
                 });
-                group.add(bumperF, bumperR, grille, plate);
+                group.add(bumperF, bumperR, grille);
 
-                const zPositions = spec.id === 'semi' ? [len / 2 - 1.1, -0.5, -len / 2 + 1.1] : [len / 2 - 1.0, -len / 2 + 1.0];
-                zPositions.forEach(wz => {
-                    [-width / 2 - 0.05, width / 2 + 0.05].forEach(wx => {
-                        const w = createWheelMesh(isHeavy ? 0.62 : 0.48, 0.36);
-                        w.position.set(wx, isHeavy ? 0.62 : 0.48, wz);
+                // Çamurluk Kemerleri + 5 Kollu Çelik Jantlı Tekerlekler
+                wheelZ.forEach(wz => {
+                    [-width / 2 - 0.06, width / 2 + 0.06].forEach(wx => {
+                        const w = createWheelMesh(wheelR, 0.38, spec.id === 'sport');
+                        w.position.set(wx, wheelR, wz);
                         wheels.push(w);
                         group.add(w);
                     });
                 });
+
+            // =========================================================
+            // 2. ZIRHLI TANK (PALET TEKERLEKLERİ + REAKTİF ZIRH + TARET)
+            // =========================================================
             } else if (spec.id === 'tank') {
-                const hull = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.1, 6.2), bodyMat);
-                hull.position.y = 0.9;
-                const trackL = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.95, 6.4), darkMat);
-                trackL.position.set(-1.75, 0.55, 0);
-                const trackR = trackL.clone();
-                trackR.position.x = 1.75;
-                const turret = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 2.8), bodyMat);
-                turret.position.set(0, 1.8, -0.2);
-                const cannon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 4.5, 12), darkMat);
+                const hullGeo = createExtrudedProfileGeo('tank_hull', [
+                    [-3.2, 0.35], [3.2, 0.35], [3.5, 1.15], [2.4, 1.45], [-2.8, 1.45], [-3.4, 1.05]
+                ], 3.4, 0.12);
+                const hull = new THREE.Mesh(hullGeo, bodyMat);
+                hull.castShadow = true;
+
+                // Paletler ve 12 Adet Palet Tekerleği
+                [-1.8, 1.8].forEach(tx => {
+                    const track = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.95, 6.6), darkMat);
+                    track.position.set(tx, 0.52, 0);
+                    const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.42, 6.7), bodyMat);
+                    skirt.position.set(tx, 0.95, 0);
+                    group.add(track, skirt);
+                    for (let wz = -2.5; wz <= 2.5; wz += 1.0) {
+                        const tw = createWheelMesh(0.42, 0.55, false);
+                        tw.position.set(tx, 0.42, wz);
+                        wheels.push(tw);
+                        group.add(tw);
+                    }
+                });
+
+                // Eğimli Zırhlı Taret + Uzun Namlu + Komutan Kupolası
+                const turret = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.55, 0.92, 8), bodyMat);
+                turret.position.set(0, 1.82, -0.2);
+                const cupola = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.48, 0.35, 10), trimMat);
+                cupola.position.set(0.45, 2.4, -0.4);
+                const cannon = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.22, 4.9, 14), darkMat);
                 cannon.rotation.x = Math.PI / 2;
-                cannon.position.set(0, 1.85, 2.4);
-                group.add(hull, trackL, trackR, turret, cannon);
+                cannon.position.set(0, 1.88, 2.5);
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.26, 0.55, 12), trimMat);
+                muzzle.rotation.x = Math.PI / 2;
+                muzzle.position.set(0, 1.88, 4.9);
+                group.add(hull, turret, cupola, cannon, muzzle);
+
+            // =========================================================
+            // 3. UÇAKLAR (BURUN KONİSİ + AÇILI KANATLAR + JET MOTORLARI + FÜZELER)
+            // =========================================================
             } else if (spec.domain === 'air_plane' || spec.domain === 'air_sea') {
                 const isBig = spec.id === 'airliner';
-                const fuseLen = isBig ? 11.0 : 7.2;
-                const fuseR = isBig ? 1.15 : 0.72;
-                const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(fuseR * 0.7, fuseR, fuseLen, 16), bodyMat);
+                const isFighter = spec.id === 'fighter';
+                const fuseLen = isBig ? 11.2 : 7.6;
+                const fuseR = isBig ? 1.18 : 0.76;
+
+                // Aerodinamik Silindir Gövde + Sivri Burun Konisi + Kuyruk Konisi
+                const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(fuseR, fuseR, fuseLen * 0.65, 18), bodyMat);
                 fuselage.rotation.x = Math.PI / 2;
-                fuselage.position.y = 1.6;
-                const cockpit = new THREE.Mesh(new THREE.BoxGeometry(fuseR * 1.35, 0.75, 1.8), glassMat);
-                cockpit.position.set(0, 2.05, fuseLen * 0.32);
-                const wingSpan = isBig ? 13.5 : 8.8;
-                const wings = new THREE.Mesh(new THREE.BoxGeometry(wingSpan, 0.18, 1.9), bodyMat);
-                wings.position.set(0, 1.6, 0.3);
-                const tailV = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.1, 1.6), redMat);
-                tailV.position.set(0, 2.6, -fuseLen / 2 + 0.8);
-                group.add(fuselage, cockpit, wings, tailV);
+                fuselage.position.y = 1.75;
+
+                const noseCone = new THREE.Mesh(new THREE.ConeGeometry(fuseR, fuseLen * 0.28, 18), bodyMat);
+                noseCone.rotation.x = Math.PI / 2;
+                noseCone.position.set(0, 1.75, fuseLen * 0.46);
+
+                const tailCone = new THREE.Mesh(new THREE.ConeGeometry(fuseR, fuseLen * 0.26, 16), bodyMat);
+                tailCone.rotation.x = -Math.PI / 2;
+                tailCone.position.set(0, 1.82, -fuseLen * 0.45);
+
+                // Bombeli Cam Kokpit Kanopisi
+                const canopy = new THREE.Mesh(
+                    new THREE.SphereGeometry(fuseR * 0.86, 16, 12),
+                    glassMat
+                );
+                canopy.scale.set(0.9, 0.72, 2.2);
+                canopy.position.set(0, 2.18, fuseLen * 0.18);
+                group.add(fuselage, noseCone, tailCone, canopy);
+
+                // Geriye Açılı (Swept-Back) Ana Kanatlar & Kıvrık Winglet Uçlar
+                const wingSpan = isBig ? 7.2 : 4.6;
+                [-1, 1].forEach(side => {
+                    const wing = new THREE.Mesh(new THREE.BoxGeometry(wingSpan, 0.16, isFighter ? 2.4 : 1.85), bodyMat);
+                    wing.position.set(side * (wingSpan / 2 + fuseR * 0.5), 1.68, 0.1);
+                    wing.rotation.y = side * (isFighter ? -0.32 : -0.18);
+                    const winglet = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.85, 0.9), redMat);
+                    winglet.position.set(side * (wingSpan + fuseR * 0.4), 2.05, -0.2);
+                    group.add(wing, winglet);
+
+                    // Kanat Altı Jet Türbin Motorları veya Savaş Füzeleri
+                    if (isBig) {
+                        const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.42, 2.1, 14), chromeMat);
+                        engine.rotation.x = Math.PI / 2;
+                        engine.position.set(side * 3.4, 1.22, 0.5);
+                        group.add(engine);
+                    } else if (isFighter) {
+                        // Savaş Uçağı Kanat Altı Beyaz/Kırmızı Füzeleri + Çift Art Yakıcı (Afterburner)
+                        const missile = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.9, 8), whiteMat);
+                        missile.rotation.x = Math.PI / 2;
+                        missile.position.set(side * 2.5, 1.42, 0.2);
+                        const mTip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.4, 8), redMat);
+                        mTip.rotation.x = Math.PI / 2;
+                        mTip.position.set(side * 2.5, 1.42, 1.35);
+                        group.add(missile, mTip);
+                    }
+                });
+
+                // Kuyruk Kanatları (Dikey + Yatay Stabilizatörler)
+                const tailV = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.2, 1.8), redMat);
+                tailV.position.set(0, 2.8, -fuseLen * 0.42);
+                tailV.rotation.x = -0.25;
+                const tailH = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.14, 1.2), bodyMat);
+                tailH.position.set(0, 2.0, -fuseLen * 0.44);
+                group.add(tailV, tailH);
 
                 if (spec.id === 'seaplane') {
-                    [-1.6, 1.6].forEach(px => {
-                        const pontoon = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.55, 4.6), whiteMat);
-                        pontoon.position.set(px, 0.35, 0.3);
-                        group.add(pontoon);
+                    [-1.7, 1.7].forEach(px => {
+                        const pontoon = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 4.8, 12), yellowMat);
+                        pontoon.rotation.x = Math.PI / 2;
+                        pontoon.position.set(px, 0.4, 0.3);
+                        const strut = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), darkMat);
+                        strut.position.set(px * 0.75, 1.0, 0.3);
+                        group.add(pontoon, strut);
                     });
                 }
-                const prop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.22, 0.12), darkMat);
-                prop.position.set(0, 1.6, fuseLen / 2 + 0.15);
-                rotors.push(prop);
-                group.add(prop);
+
+                // Burun Pervanesi
+                const propGroup = new THREE.Group();
+                propGroup.position.set(0, 1.75, fuseLen * 0.60);
+                const b1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.22, 0.08), darkMat);
+                const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.08), darkMat);
+                propGroup.add(b1, b2);
+                rotors.push(propGroup);
+                group.add(propGroup);
+
+            // =========================================================
+            // 4. HELİKOPTERLER (BOMBELİ KANOPİ + ROKET PODLARI + KUYRUK PERVANESİ)
+            // =========================================================
             } else if (spec.domain === 'air_heli') {
-                const pod = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.6, 3.8), bodyMat);
-                pod.position.set(0, 1.5, 0.4);
-                const glass = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.1, 1.6), glassMat);
-                glass.position.set(0, 1.6, 1.65);
-                const tailBoom = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 4.2), bodyMat);
-                tailBoom.position.set(0, 1.7, -3.2);
-                const skidL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 3.8), darkMat);
-                skidL.position.set(-1.1, 0.2, 0.3);
-                const skidR = skidL.clone();
-                skidR.position.x = 1.1;
-                const rotorMast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.6, 8), darkMat);
-                rotorMast.position.set(0, 2.5, 0.4);
+                const isAttack = spec.id === 'attack_heli';
+                const heliGeo = createExtrudedProfileGeo(`heli_${spec.id}`, [
+                    [-2.0, 0.55], [1.9, 0.55], [2.45, 1.15], [1.65, 2.15], [-1.35, 2.25], [-2.15, 1.45]
+                ], isAttack ? 1.75 : 2.15, 0.14);
+                const pod = new THREE.Mesh(heliGeo, bodyMat);
+                pod.castShadow = true;
+
+                const cockpit = new THREE.Mesh(new THREE.SphereGeometry(1.05, 14, 12), glassMat);
+                cockpit.scale.set(isAttack ? 0.78 : 0.95, 0.75, 1.45);
+                cockpit.position.set(0, 1.48, 1.15);
+
+                const tailBoom = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.42, 4.4, 12), bodyMat);
+                tailBoom.rotation.x = Math.PI / 2;
+                tailBoom.position.set(0, 1.65, -3.4);
+
+                const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.35, 0.9), redMat);
+                tailFin.position.set(0, 2.05, -5.4);
+
+                // İniş Kızakları (Skids)
+                [-1.1, 1.1].forEach(sx => {
+                    const skid = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 4.0, 8), darkMat);
+                    skid.rotation.x = Math.PI / 2;
+                    skid.position.set(sx, 0.16, 0.2);
+                    const leg1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), darkMat);
+                    leg1.position.set(sx, 0.42, 1.1);
+                    const leg2 = leg1.clone();
+                    leg2.position.z = -0.8;
+                    group.add(skid, leg1, leg2);
+                });
+
+                if (isAttack) {
+                    // Savaş Helikopteri Yan Kanatçıklar, Roket Podları ve Burun Makineli Topu
+                    const stubWing = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.16, 0.85), bodyMat);
+                    stubWing.position.set(0, 1.25, 0.1);
+                    [-1.6, 1.6].forEach(rx => {
+                        const rocketPod = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.5, 10), darkMat);
+                        rocketPod.rotation.x = Math.PI / 2;
+                        rocketPod.position.set(rx, 1.02, 0.2);
+                        group.add(rocketPod);
+                    });
+                    const chinGun = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.4, 8), darkMat);
+                    chinGun.rotation.x = Math.PI / 2;
+                    chinGun.position.set(0, 0.45, 2.3);
+                    group.add(stubWing, chinGun);
+                }
+
+                // 4 Kanatlı Ana Rotor + Dönen Kuyruk Rotoru
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.65, 10), chromeMat);
+                mast.position.set(0, 2.55, 0.2);
                 const mainRotor = new THREE.Group();
-                mainRotor.position.set(0, 2.8, 0.4);
-                const b1 = new THREE.Mesh(new THREE.BoxGeometry(7.8, 0.08, 0.35), darkMat);
-                const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 7.8), darkMat);
-                mainRotor.add(b1, b2);
+                mainRotor.position.set(0, 2.85, 0.2);
+                const rb1 = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.07, 0.36), darkMat);
+                const rb2 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.07, 8.2), darkMat);
+                mainRotor.add(rb1, rb2);
                 rotors.push(mainRotor);
-                group.add(pod, glass, tailBoom, skidL, skidR, rotorMast, mainRotor);
+
+                const tailRotor = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.45, 0.22), yellowMat);
+                tailRotor.position.set(0.22, 2.15, -5.4);
+                rotors.push(tailRotor);
+
+                group.add(pod, cockpit, tailBoom, tailFin, mast, mainRotor, tailRotor);
+
+            // =========================================================
+            // 5. DENİZ FİLOSU (SİVRİ V-PRUVA GEMİ BURNU + KONTEYNER + TOP TARETLERİ)
+            // =========================================================
             } else if (spec.domain === 'sea') {
                 if (spec.id === 'carrier') {
-                    const hull = new THREE.Mesh(new THREE.BoxGeometry(11.0, 3.2, 28.0), darkMat);
-                    hull.position.y = 1.2;
-                    const deck = new THREE.Mesh(new THREE.BoxGeometry(13.5, 0.5, 30.0), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 }));
+                    // Sivri Pruvalı Dev Uçak Gemisi + Kontrol Kulesi + Güvertede Park Halinde 2 Mini Savaş Jeti
+                    const hullGeo = createExtrudedProfileGeo('carrier_hull', [
+                        [-14.0, 0.0], [12.0, 0.0], [14.5, 2.9], [-14.0, 2.9]
+                    ], 11.2, 0.2);
+                    const hull = new THREE.Mesh(hullGeo, darkMat);
+                    const deck = new THREE.Mesh(new THREE.BoxGeometry(13.8, 0.45, 30.0), trimMat);
                     deck.position.y = 3.05;
-                    const runwayLine = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 27.0), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-                    runwayLine.position.y = 3.06;
-                    const tower = new THREE.Mesh(new THREE.BoxGeometry(2.4, 4.2, 5.5), bodyMat);
-                    tower.position.set(4.8, 5.2, -2.0);
-                    group.add(hull, deck, runwayLine, tower);
+                    const runwayStripe = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.48, 27.5), yellowMat);
+                    runwayStripe.position.y = 3.07;
+
+                    const island = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4.4, 6.0), bodyMat);
+                    island.position.set(5.0, 5.2, -2.5);
+                    const islandGlass = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.9, 3.2), glassMat);
+                    islandGlass.position.set(5.0, 6.2, -1.5);
+                    const radar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.2), whiteMat);
+                    radar.position.set(5.0, 7.8, -2.5);
+                    rotors.push(radar);
+
+                    // Güvertede hazır bekleyen 2 Dekoratif Mini Jet
+                    [-3.5, 3.5].forEach((jz, idx) => {
+                        const miniJet = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.2, 6), idx === 0 ? whiteMat : chromeMat);
+                        miniJet.rotation.x = Math.PI / 2;
+                        miniJet.position.set(-4.2, 3.65, jz * 2.2);
+                        const miniWing = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 1.1), redMat);
+                        miniWing.position.set(-4.2, 3.6, jz * 2.2);
+                        group.add(miniJet, miniWing);
+                    });
+
+                    group.add(hull, deck, runwayStripe, island, islandGlass, radar);
+                } else if (spec.id === 'speedboat') {
+                    // Sivri Burunlu Lüks Sürat Teknesi + Ön Cam + Koltuklar + Kıçtan Takma Motor
+                    const boatGeo = createExtrudedProfileGeo('speedboat_hull', [
+                        [-2.8, 0.1], [1.8, 0.1], [3.1, 0.95], [-2.8, 0.92]
+                    ], 2.35, 0.12);
+                    const hull = new THREE.Mesh(boatGeo, bodyMat);
+                    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.2, 3.6), whiteMat);
+                    deck.position.set(0, 0.88, -0.3);
+                    const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, 0.14), glassMat);
+                    windshield.position.set(0, 1.15, 0.95);
+                    windshield.rotation.x = -0.55;
+                    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.7), redMat);
+                    seat.position.set(0, 1.05, -0.5);
+                    const motor = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.9, 0.65), darkMat);
+                    motor.position.set(0, 0.65, -2.95);
+                    group.add(hull, deck, windshield, seat, motor);
                 } else {
-                    const isShip = spec.id !== 'speedboat';
-                    const w = isShip ? 4.6 : 2.4;
-                    const l = isShip ? 13.5 : 5.6;
-                    const hull = new THREE.Mesh(new THREE.BoxGeometry(w, isShip ? 2.0 : 0.9, l), bodyMat);
-                    hull.position.y = isShip ? 0.8 : 0.4;
-                    const bridge = new THREE.Mesh(new THREE.BoxGeometry(w * 0.78, isShip ? 2.4 : 0.8, l * 0.32), whiteMat);
-                    bridge.position.set(0, isShip ? 2.6 : 1.0, isShip ? -l * 0.22 : 0);
-                    group.add(hull, bridge);
+                    // Kargo Gemisi (Renkli Konteynerli) & Savaş Gemisi (Top Taretli & Radarlı)
+                    const isWar = spec.id === 'warship';
+                    const shipGeo = createExtrudedProfileGeo(`ship_${spec.id}`, [
+                        [-7.0, 0.1], [5.2, 0.1], [7.4, 2.1], [-7.0, 2.0]
+                    ], 4.6, 0.18);
+                    const hull = new THREE.Mesh(shipGeo, bodyMat);
+                    const bridge = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.8, 3.8), whiteMat);
+                    bridge.position.set(0, 3.2, -3.2);
+                    const bridgeGlass = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.75, 1.2), glassMat);
+                    bridgeGlass.position.set(0, 3.9, -1.8);
+                    group.add(hull, bridge, bridgeGlass);
+
+                    if (isWar) {
+                        // Savaş Gemisi Baş Top Tareti ve Döner Radar
+                        const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.05, 0.8, 10), trimMat);
+                        turret.position.set(0, 2.35, 3.2);
+                        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 2.6, 8), darkMat);
+                        barrel.rotation.x = Math.PI / 2;
+                        barrel.position.set(0, 2.45, 4.4);
+                        const radar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.16), chromeMat);
+                        radar.position.set(0, 5.0, -3.2);
+                        rotors.push(radar);
+                        group.add(turret, barrel, radar);
+                    } else {
+                        // Kargo Gemisi Renkli Yük Konteynerleri
+                        const cCols = [0xef4444, 0xfacc15, 0x22c55e, 0xf97316];
+                        for (let cz = 0.2; cz <= 4.2; cz += 2.0) {
+                            [-1.05, 1.05].forEach((cx, ci) => {
+                                const cont = new THREE.Mesh(
+                                    new THREE.BoxGeometry(1.85, 1.45, 1.85),
+                                    getSharedMaterial(null, cCols[(Math.round(cz) + ci) % cCols.length], 0.6)
+                                );
+                                cont.position.set(cx, 2.65, cz);
+                                group.add(cont);
+                            });
+                        }
+                    }
                 }
             }
 
@@ -1916,7 +2300,6 @@
                 groundBeam.position.set(0, 0.29, 14.5);
                 headlightGroup.add(groundBeam);
 
-                // 3B Hacimsel Far Konileri (Sol ve Sağ Far)
                 const coneGeo = new THREE.ConeGeometry(2.2, 16.0, 12, 1, true);
                 const coneMat = new THREE.MeshBasicMaterial({
                     color: 0xfef08a,
@@ -1937,7 +2320,7 @@
                 group.add(headlightGroup);
             }
 
-            group.userData = { wheels, rotors, headlightGroup };
+            group.userData = { wheels, rotors, headlightGroup, strobePair: group.userData.strobePair };
             return group;
         }
 
@@ -5443,9 +5826,15 @@
                 }
             }
 
-            // Reduce vehicle collision cooldowns
+            // Araç çarpışma süresi ve Polis/Ambulans/İtfaiye Çakar Lambası Animasyonu
+            const strobeToggle = Math.floor(now * 0.008) % 2 === 0;
             vehicles.forEach(veh => {
                 if (veh.collisionCooldown > 0) veh.collisionCooldown -= 1;
+                const sp = veh.mesh.userData.strobePair;
+                if (sp) {
+                    sp.redLight.visible = strobeToggle;
+                    sp.blueLight.visible = !strobeToggle;
+                }
             });
 
             // Auto-open doors when player walks right up to them so entering houses is effortless!
