@@ -184,10 +184,16 @@
                     <i class="fas fa-wand-magic-sparkles"></i> Modifiye & Neon [U]
                 </button>
 
-                <!-- Inline Compact Color Picker -->
-                <div class="glass-panel px-2 py-0.5 rounded-xl flex items-center gap-1 border border-slate-700">
-                    <i class="fas fa-palette text-amber-400 text-[10px]"></i>
-                    <div id="color-palette-bar" class="flex items-center gap-1"></div>
+                <!-- Tıklanınca Açılan Kompakt Renk Paleti -->
+                <div class="relative flex items-center">
+                    <button onclick="toggleColorPalettePopup()" class="ergo-btn glass-panel px-2.5 py-1 rounded-xl flex items-center gap-1.5 border border-amber-400/60 text-[11px] font-extrabold text-amber-300 shadow">
+                        <i class="fas fa-palette text-amber-400"></i>
+                        <span>Renk</span>
+                        <span id="active-color-dot" class="w-3.5 h-3.5 rounded-full border border-white inline-block" style="background: linear-gradient(135deg,#f8fafc 50%,#b91c1c 50%);"></span>
+                    </button>
+                    <div id="color-palette-popup" class="hidden glass-panel px-2.5 py-1.5 rounded-2xl flex items-center gap-1.5 border border-amber-400 shadow-2xl ml-1.5 z-30">
+                        <div id="color-palette-bar" class="flex items-center gap-1.5"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2737,7 +2743,7 @@
             if (state.firstPerson) {
                 state.cameraAngle = state.inVehicle ? state.inVehicle.angle : player.angle;
                 state.cameraPitch = -0.05;
-                state.touchAimFront = true;
+                state.touchAimFront = false;
                 btn.className = 'bg-amber-500 px-2.5 py-0.5 rounded-lg text-[10px] font-black text-slate-950 border border-white flex items-center gap-1 shadow';
                 lbl.innerText = '1. Şahıs (FPS)';
                 crosshair.classList.remove('hidden');
@@ -3111,32 +3117,41 @@
         const pointerNDC = new THREE.Vector2();
 
         let lastRayTime = 0;
+        let lastPointerX = window.innerWidth / 2;
+        let lastPointerY = window.innerHeight / 2;
+
         function updateRayTarget(clientX, clientY, forceImmediate = false) {
             if (!groundMesh) return;
+            if (clientX !== undefined && clientY !== undefined) {
+                lastPointerX = clientX;
+                lastPointerY = clientY;
+            }
             const now = performance.now();
-            if (!forceImmediate && now - lastRayTime < 40) return;
+            if (!forceImmediate && now - lastRayTime < 30) return;
             lastRayTime = now;
 
-            pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
-            pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+            pointerNDC.x = (lastPointerX / window.innerWidth) * 2 - 1;
+            pointerNDC.y = -(lastPointerY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointerNDC, camera);
 
             hoveredStructure = null;
             const activeItem = state.hotbar[state.selectedSlot] || '';
             const isFurniture = activeItem.startsWith('furniture_') || activeItem === 'bench';
-            let floorHitPoint = null;
+            let surfaceHitPoint = null;
 
+            // Yakındaki tüm yapıları tara: Hem Parça Sök için hedefi bulur hem de üst katlara/zeminlere serbest konumlandırma sağlar!
             if (placedStructures.length > 0) {
                 const nearMeshes = [];
                 for (let i = 0; i < placedStructures.length; i++) {
                     const s = placedStructures[i];
-                    if (Math.abs(s.pos.x - player.pos.x) < 36 && Math.abs(s.pos.z - player.pos.z) < 36) {
+                    if (Math.abs(s.pos.x - player.pos.x) < 48 && Math.abs(s.pos.z - player.pos.z) < 48) {
                         nearMeshes.push(s.mesh);
                     }
                 }
                 if (nearMeshes.length > 0) {
                     const structHits = raycaster.intersectObjects(nearMeshes, true);
                     for (let h = 0; h < structHits.length; h++) {
+                        if (structHits[h].object.userData.isSkirt) continue;
                         let hitObj = structHits[h].object;
                         while (hitObj.parent && hitObj.parent !== scene) {
                             hitObj = hitObj.parent;
@@ -3145,21 +3160,21 @@
                         if (!st) continue;
                         if (!hoveredStructure) hoveredStructure = st;
 
-                        // Mobilya yerleştirirken evin içindeki zemin/kat plakasına tıklanırsa tam orayı hedef al!
-                        if (isFurniture && ['foundation', 'wood_deck', 'marble_floor', 'ceiling_tile', 'floor_slab'].includes(st.type)) {
-                            floorHitPoint = structHits[h].point;
-                            break;
+                        if (!surfaceHitPoint && (isFurniture || ['foundation', 'wood_deck', 'marble_floor', 'ceiling_tile', 'floor_slab', 'road', 'bridge'].includes(st.type))) {
+                            surfaceHitPoint = structHits[h].point;
                         }
                     }
                 }
             }
 
-            if (floorHitPoint) {
-                state.mouseWorld.copy(floorHitPoint);
+            if (surfaceHitPoint && (isFurniture || state.buildLayer > 0 || player.pos.y > 1.5)) {
+                state.mouseWorld.copy(surfaceHitPoint);
             } else {
                 const hits = raycaster.intersectObject(groundMesh);
                 if (hits.length > 0) {
                     state.mouseWorld.copy(hits[0].point);
+                } else if (surfaceHitPoint) {
+                    state.mouseWorld.copy(surfaceHitPoint);
                 }
             }
         }
@@ -3868,12 +3883,54 @@
                 drill.position.y = 1.1;
                 group.add(base, tower, drill);
             } else if (itemId.startsWith('prefab_')) {
-                const previewBox = new THREE.Mesh(
-                    new THREE.BoxGeometry(GRID * 3, GRID * 2, GRID * 3),
+                // Her Hazır Binanın Birebir Gerçek Genişlik (X), Derinlik (Z), Yükseklik (Y) ve Merkez Kayması
+                const PREFAB_DIMS = {
+                    prefab_cottage:      { w: 3 * GRID, d: 4 * GRID, h: 1.8 * GRID, ox: 0, oz: 0.5 * GRID, col: 0xfde68a },
+                    prefab_villa:        { w: 4 * GRID, d: 3 * GRID, h: 2.8 * GRID, ox: 0.5 * GRID, oz: 0, col: 0xf8fafc },
+                    prefab_apartment:    { w: 4 * GRID, d: 3 * GRID, h: 3.6 * GRID, ox: 0.5 * GRID, oz: 0, col: 0x94a3b8 },
+                    prefab_apartment_v2: { w: 5 * GRID, d: 3 * GRID, h: 4.5 * GRID, ox: 0, oz: 0, col: 0x0284c7 },
+                    prefab_apartment_v3: { w: 4 * GRID, d: 3 * GRID, h: 5.6 * GRID, ox: 0.5 * GRID, oz: 0, col: 0xfacc15 },
+                    prefab_school:       { w: 5 * GRID, d: 4 * GRID, h: 1.8 * GRID, ox: 0, oz: 0.5 * GRID, col: 0xfde68a },
+                    prefab_school_v2:    { w: 5 * GRID, d: 4 * GRID, h: 2.8 * GRID, ox: 0, oz: 0.5 * GRID, col: 0xb91c1c },
+                    prefab_school_v3:    { w: 5 * GRID, d: 3 * GRID, h: 2.6 * GRID, ox: 0, oz: 0, col: 0x38bdf8 },
+                    prefab_supermarket:  { w: 5 * GRID, d: 4 * GRID, h: 2.4 * GRID, ox: 0, oz: 0.5 * GRID, col: 0x0284c7 },
+                    prefab_police:       { w: 4 * GRID, d: 3 * GRID, h: 2.4 * GRID, ox: -0.5 * GRID, oz: 0, col: 0x0284c7 },
+                    prefab_firestation:  { w: 4 * GRID, d: 3 * GRID, h: 1.8 * GRID, ox: -0.5 * GRID, oz: 0, col: 0xdc2626 },
+                    prefab_hospital:     { w: 5 * GRID, d: 3 * GRID, h: 2.8 * GRID, ox: 0, oz: 0, col: 0xffffff },
+                    prefab_port:         { w: 4 * GRID, d: 3 * GRID, h: 2.2 * GRID, ox: -0.5 * GRID, oz: 0, col: 0x0284c7 },
+                    prefab_airport:      { w: 5 * GRID, d: 3 * GRID, h: 2.8 * GRID, ox: 0, oz: 0, col: 0x38bdf8 },
+                    prefab_mechanic:     { w: 3 * GRID, d: 3 * GRID, h: 1.8 * GRID, ox: 0, oz: 0, col: 0xf59e0b },
+                    prefab_bank:         { w: 5 * GRID, d: 3 * GRID, h: 2.8 * GRID, ox: 0, oz: 0, col: 0xfacc15 },
+                    prefab_fenced_yard:  { w: 5 * GRID, d: 5 * GRID, h: 1.0 * GRID, ox: 0, oz: 0, col: 0x22c55e }
+                };
+                const dim = PREFAB_DIMS[itemId] || { w: 3 * GRID, d: 3 * GRID, h: 2 * GRID, ox: 0, oz: 0, col: 0x38bdf8 };
+
+                // Yarı saydam gerçek bina hacim kutusu + net sınır çerçevesi + ön kapı yönü işareti
+                const solidPreview = new THREE.Mesh(
+                    new THREE.BoxGeometry(dim.w, dim.h, dim.d),
+                    new THREE.MeshStandardMaterial({ color: dim.col, transparent: true, opacity: 0.35 })
+                );
+                solidPreview.position.set(dim.ox, dim.h / 2, dim.oz);
+
+                const wireBox = new THREE.Mesh(
+                    new THREE.BoxGeometry(dim.w + 0.1, dim.h + 0.1, dim.d + 0.1),
                     new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
                 );
-                previewBox.position.y = GRID;
-                group.add(previewBox);
+                wireBox.position.set(dim.ox, dim.h / 2, dim.oz);
+
+                const groundFootprint = new THREE.Mesh(
+                    new THREE.BoxGeometry(dim.w + 0.2, 0.18, dim.d + 0.2),
+                    new THREE.MeshBasicMaterial({ color: 0x10b981, wireframe: true })
+                );
+                groundFootprint.position.set(dim.ox, 0.1, dim.oz);
+
+                const doorMarker = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.4, 3.2, 0.35),
+                    new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+                );
+                doorMarker.position.set(0, 1.6, dim.oz + dim.d / 2 + 0.2);
+
+                group.add(solidPreview, wireBox, groundFootprint, doorMarker);
             }
             return group;
         }
@@ -3898,33 +3955,31 @@
             if (activeItem === 'axe_pick') return;
 
             const previewModel = createStructureMesh(activeItem, state.selectedColorHex);
-            previewModel.traverse(child => {
-                if (child.isMesh) {
-                    if (child.userData.isSkirt || child.position.y < -1.0) {
-                        child.visible = false;
-                    } else if (child.material) {
-                        child.material = child.material.clone();
-                        child.material.transparent = true;
-                        child.material.opacity = 0.58;
+            if (!activeItem.startsWith('prefab_')) {
+                previewModel.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.userData.isSkirt || child.position.y < -1.0) {
+                            child.visible = false;
+                        } else if (child.material) {
+                            child.material = child.material.clone();
+                            child.material.transparent = true;
+                            child.material.opacity = 0.62;
+                        }
                     }
-                }
-            });
+                });
+            }
             ghostMesh.add(previewModel);
 
-            // Base footprint outline + Front Direction Arrow
-            const baseFrame = new THREE.Mesh(
-                new THREE.BoxGeometry(GRID, 0.08, GRID),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
-            );
-            baseFrame.position.y = 0.05;
-
-            const arrowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-            const arrowShaft = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 1.4), arrowMat);
-            arrowShaft.position.set(0, 0.2, 1.5);
-            const arrowHead = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.9, 4), arrowMat);
-            arrowHead.rotation.x = Math.PI / 2;
-            arrowHead.position.set(0, 0.2, 2.4);
-            ghostMesh.add(baseFrame, arrowShaft, arrowHead);
+            // Tekil parçalar için gerçek ebatta taban çerçevesi ve yön oku
+            if (!activeItem.startsWith('prefab_')) {
+                const arrowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+                const arrowShaft = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 1.2), arrowMat);
+                arrowShaft.position.set(0, 0.15, 1.3);
+                const arrowHead = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.75, 4), arrowMat);
+                arrowHead.rotation.x = Math.PI / 2;
+                arrowHead.position.set(0, 0.15, 2.0);
+                ghostMesh.add(arrowShaft, arrowHead);
+            }
         }
 
         // ====================================================
@@ -4015,7 +4070,8 @@
                 rotation: rot,
                 colorHex: colToUse,
                 prefabGroupId: activeGroupId,
-                prefabType: prefabType || null
+                prefabType: prefabType || null,
+                isStarterCity: isGeneratingStarterWorld
             });
 
             if (!isGeneratingStarterWorld && !fromNetwork && !currentPrefabGroupId) {
@@ -4629,21 +4685,33 @@
         }
 
         function undoLastBuild() {
-            if (placedStructures.length === 0) {
+            // Sadece başlangıç şehri bittikten sonra eklenen son yapıyı bul ve geri al!
+            let targetIdx = -1;
+            for (let i = placedStructures.length - 1; i >= 0; i--) {
+                if (!placedStructures[i].isStarterCity) {
+                    targetIdx = i;
+                    break;
+                }
+            }
+            if (targetIdx === -1 && placedStructures.length > 0) {
+                targetIdx = placedStructures.length - 1;
+            }
+            if (targetIdx === -1) {
                 showToast('⚠️ Geri alınacak bir yapı yok!', 'text-slate-400');
                 return;
             }
-            const last = placedStructures[placedStructures.length - 1];
+
+            const last = placedStructures[targetIdx];
             if (last.prefabGroupId) {
                 removeEntirePrefabGroup(last.prefabGroupId);
                 return;
             }
-            placedStructures.pop();
+            placedStructures.splice(targetIdx, 1);
             scene.remove(last.mesh);
             if (hoveredStructure === last) hoveredStructure = null;
             playSfx('remove');
             const catItem = CATALOG.find(c => c.id === last.type);
-            const refund = last.paidPrice !== undefined ? last.paidPrice : (catItem ? catItem.price : 0);
+            const refund = last.paidPrice !== undefined ? last.paidPrice : (catItem ? catItem.price : 20);
             if (refund > 0) {
                 state.money += refund;
                 updateHUD();
@@ -4654,7 +4722,6 @@
 
         function removeSpecificStructure(targetStruct) {
             if (!targetStruct) return false;
-            // Eğer "Komple Bina Sök" modu açıksa ve bu parça bir hazır binaya aitse tüm binayı tek seferde sil!
             if (state.deleteWholeBuilding && targetStruct.prefabGroupId) {
                 return removeEntirePrefabGroup(targetStruct.prefabGroupId);
             }
@@ -4665,55 +4732,39 @@
                 if (hoveredStructure === targetStruct) hoveredStructure = null;
                 playSfx('remove');
                 const catItem = CATALOG.find(c => c.id === targetStruct.type);
-                const refund = targetStruct.paidPrice !== undefined ? targetStruct.paidPrice : (catItem ? catItem.price : 0);
+                const refund = targetStruct.paidPrice !== undefined ? targetStruct.paidPrice : (catItem ? catItem.price : 20);
                 if (refund > 0) {
                     state.money += refund;
                     updateHUD();
                 }
                 syncStructuresToCloudAndRoom();
-                showToast(`🗑️ ${catItem ? catItem.name : 'Yapı'} söküldü ve buluta kaydedildi (+${refund} TL iade)`, 'text-rose-300');
+                showToast(`🗑️ ${catItem ? catItem.name : 'Yapı'} söküldü (+${refund} TL iade)`, 'text-rose-300');
                 return true;
             }
             return false;
         }
 
         function removeTargetedBlockOrNature() {
+            // Anlık Raycast güncellemesi yap ki fare/dokunma altındaki yapı %100 yakalansın
+            updateRayTarget(lastPointerX, lastPointerY, true);
             if (hoveredStructure && removeSpecificStructure(hoveredStructure)) {
                 return true;
             }
+            // Fare/Dokunma noktasına (state.mouseWorld) en yakın yapıyı bul ve sök
             let closestIdx = -1;
-            let closestDist = 6.5;
+            let closestDist = 5.5;
             for (let i = placedStructures.length - 1; i >= 0; i--) {
                 const s = placedStructures[i];
-                const d = Math.hypot(s.pos.x - ghostMesh.position.x, s.pos.z - ghostMesh.position.z);
+                const d = Math.hypot(s.pos.x - state.mouseWorld.x, s.pos.z - state.mouseWorld.z);
                 if (d < closestDist) {
                     closestDist = d;
                     closestIdx = i;
                 }
             }
             if (closestIdx !== -1) {
-                const s = placedStructures[closestIdx];
-                return removeSpecificStructure(s);
+                return removeSpecificStructure(placedStructures[closestIdx]);
             }
-            for (let i = natureObjects.length - 1; i >= 0; i--) {
-                const n = natureObjects[i];
-                if (n.pos.distanceTo(ghostMesh.position) < 6.5 || n.pos.distanceTo(player.pos) < 6.5) {
-                    scene.remove(n.mesh);
-                    natureObjects.splice(i, 1);
-                    playSfx('remove');
-                    if (n.type === 'tree') {
-                        state.resources.wood += 15;
-                        showToast('🌲 +15 Odun toplandı!', 'text-amber-300');
-                    } else {
-                        state.resources.stone += 15;
-                        state.resources.metal += 10;
-                        showToast('🪨 +15 Taş, +10 Metal toplandı!', 'text-sky-300');
-                    }
-                    updateHUD();
-                    return true;
-                }
-            }
-            showToast('⚠️ Silinecek yapı bulunamadı (Sileceğiniz bloğun üzerine tıklayın veya [Z] ile geri alın)', 'text-slate-300');
+            showToast('⚠️ Sökmek istediğiniz parçanın üzerine dokunun/tıklayın veya "Geri Al" tuşuna basın!', 'text-amber-300');
             return false;
         }
 
@@ -4949,27 +5000,36 @@
         // ====================================================
         // UI, COLOR PALETTE & 15-SLOT INVENTORY MANAGEMENT
         // ====================================================
+        function toggleColorPalettePopup(forceState) {
+            const popup = document.getElementById('color-palette-popup');
+            if (!popup) return;
+            const show = forceState !== undefined ? forceState : popup.classList.contains('hidden');
+            popup.classList.toggle('hidden', !show);
+        }
+
         function renderColorPalette() {
             const bar = document.getElementById('color-palette-bar');
+            const dot = document.getElementById('active-color-dot');
             if (!bar) return;
             bar.innerHTML = '';
             BUILD_COLORS.forEach(c => {
-                const btn = document.createElement('button');
                 const isSelected = state.selectedColorHex === c.hex;
-                btn.className = `ergo-btn w-6 h-6 rounded-full border-2 transition ${isSelected ? 'border-white scale-125 shadow-lg ring-2 ring-sky-400' : 'border-slate-600 opacity-80 hover:opacity-100'}`;
+                if (isSelected && dot) dot.style.background = c.css;
+                const btn = document.createElement('button');
+                btn.className = `ergo-btn w-6 h-6 rounded-full border-2 transition ${isSelected ? 'border-white scale-125 shadow-lg ring-2 ring-sky-400' : 'border-slate-600 opacity-85 hover:opacity-100'}`;
                 btn.style.background = c.css;
                 btn.title = `Renk: ${c.name}`;
                 btn.onclick = () => {
                     state.selectedColorHex = c.hex;
                     renderColorPalette();
                     updateGhostPreviewModel();
+                    toggleColorPalettePopup(false);
                     showToast(`🎨 Yapı Rengi: ${c.name} seçildi`);
                 };
                 bar.appendChild(btn);
             });
         }
-
-        
+   
 
         function updateHUD() {
             document.getElementById('res-money').innerText = state.money;
@@ -6138,9 +6198,14 @@
                     const diff = Math.atan2(Math.sin(v.angle - state.cameraAngle), Math.cos(v.angle - state.cameraAngle));
                     state.cameraAngle += diff * 0.05;
                 }
-            } else if (state.inVehicle) {
+
+                } else if (state.inVehicle) {
                 const v = state.inVehicle;
                 const spec = v.spec;
+                const isGroundOrSea = !spec.domain.startsWith('air_');
+                // Kara ve Deniz araçlarında [Shift] tuşu NİTRO TURBO (%45 Ekstra Hız ve İvme) sağlar!
+                const nitroBoost = (isGroundOrSea && state.keys.shift && moveForward > 0.1) ? 1.45 : 1.0;
+                const maxSpd = spec.speed * nitroBoost * 1.22;
 
                 if (v.broken) {
                     v.speed = 0;
@@ -6149,21 +6214,31 @@
                         showToast(`💥 Bu araç bozuk! [F] ile inip ${v.repairCost} TL ödeyerek tamir edin.`, 'text-rose-400');
                     }
                 } else if (Math.abs(moveForward) > 0.05) {
-                    v.speed += moveForward * spec.speed * 0.08;
+                    // Ters yöne basıldığında anında güçlü fren, ileri basıldığında seri ivmelenme!
+                    const isBraking = (moveForward * v.speed < -0.02);
+                    v.speed += moveForward * maxSpd * (isBraking ? 0.22 : 0.15);
                 } else {
-                    v.speed *= 0.92;
+                    v.speed *= 0.95; // Gazı bırakınca akıcı süzülme
                 }
-                v.speed = Math.max(-spec.speed * 0.6, Math.min(spec.speed, v.speed));
+                v.speed = Math.max(-maxSpd * 0.55, Math.min(maxSpd, v.speed));
 
                 if (!v.broken && Math.abs(moveTurn) > 0.05) {
-                    v.angle += moveTurn * spec.turn * (v.speed >= -0.05 ? 1 : -1);
+                    const turnFactor = Math.min(1.25, Math.max(0.45, Math.abs(v.speed) / (spec.speed * 0.6)));
+                    v.angle += moveTurn * spec.turn * 1.25 * turnFactor * (v.speed >= -0.05 ? 1 : -1);
                 }
 
-                if (!isDraggingCam && (Math.abs(v.speed) > 0.05 || Math.abs(moveTurn) > 0.05)) {
+                // Virajlarda gerçekçi gövde yatması (Drift / Body Roll) ve Gaz/Frende burun kalkması (Pitch)!
+                const targetRoll = (!v.broken && isGroundOrSea) ? (-moveTurn * Math.min(0.14, Math.abs(v.speed) * 0.09)) : (-moveTurn * 0.28);
+                const targetPitch = (!v.broken && isGroundOrSea) ? (-moveForward * 0.045 * nitroBoost) : 0;
+                v.mesh.rotation.z += (targetRoll - v.mesh.rotation.z) * 0.22;
+                v.mesh.rotation.x += (targetPitch - v.mesh.rotation.x) * 0.22;
+
+                if (!isDraggingCam && (Math.abs(v.speed) > 0.03 || Math.abs(moveTurn) > 0.05)) {
                     const targetCamAngle = v.angle;
                     const diff = Math.atan2(Math.sin(targetCamAngle - state.cameraAngle), Math.cos(targetCamAngle - state.cameraAngle));
-                    state.cameraAngle += diff * 0.06;
+                    state.cameraAngle += diff * 0.14; // Virajlarda kamerayı gecikmesiz, sıkı takip et!
                 }
+            
 
                 const nx = v.pos.x + Math.sin(v.angle) * v.speed;
                 const nz = v.pos.z + Math.cos(v.angle) * v.speed;
@@ -6377,7 +6452,7 @@
                 const activeItem = state.hotbar[state.selectedSlot];
                 const isFurniture = activeItem.startsWith('furniture_') || activeItem === 'bench';
 
-                if (state.touchAimFront || state.firstPerson) {
+                if (state.touchAimFront) {
                     const aimAngle = state.firstPerson ? state.cameraAngle : player.angle;
                     const aimDist = isFurniture ? 3.4 : (GRID * 1.35);
                     const frontX = player.pos.x + Math.sin(aimAngle) * aimDist;
@@ -6924,6 +6999,7 @@
                 myNickname = nickVal.replace(/[.#$\[\]]/g, '_');
                 localStorage.setItem('cw_nick', myNickname);
                 setHumanNameTag(player.mesh, myNickname, true);
+                updateUrasRoyalGearVisibility();
             }
             if (roomVal) {
                 currentRoom = roomVal.replace(/[.#$\[\]]/g, '_');
@@ -7659,7 +7735,21 @@
             cape.position.set(0, 1.22, -0.28);
             cape.rotation.x = 0.18;
             humanMesh.add(cape);
+            humanMesh.userData.urasCrown = crownGroup;
             humanMesh.userData.urasCape = cape;
+            updateUrasRoyalGearVisibility();
+        }
+
+        function isUrasUser(nameStr) {
+            if (!nameStr) return false;
+            const n = nameStr.toLowerCase().trim();
+            return n === 'uras' || n === 'kral_uras' || n === 'kral uras';
+        }
+
+        function updateUrasRoyalGearVisibility() {
+            const showRoyal = isUrasUser(myNickname);
+            if (player.mesh.userData.urasCrown) player.mesh.userData.urasCrown.visible = showRoyal;
+            if (player.mesh.userData.urasCape) player.mesh.userData.urasCape.visible = showRoyal;
         }
 
         // SÜRPRİZ 2: Uras'ın Sadık Köpeği "Bobi" (Peşinden Koşar ve Kuyruk Sallar)
