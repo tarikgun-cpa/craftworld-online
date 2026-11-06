@@ -5624,111 +5624,71 @@
         }
 
         let lastIndoorCheckTime = 0;
-        const fadedStructuresSet = new Set();
+        let autoIndoorFpsActive = false;
+        let dynamicCamCurrentDist = 28; // Dinamik yaylı kamera mesafesi
 
-        function setStructureOpacity(s, makeTransparent) {
-            if (!s || !s.mesh) return;
-            s.mesh.traverse(ch => {
-                if (ch.isMesh && !ch.userData.isSkirt && ch !== s.mesh.userData.lightHalo) {
-                    if (makeTransparent) {
-                        if (!ch.userData._origMatSaved) {
-                            ch.userData._origMat = ch.material;
-                            ch.userData._origMatSaved = true;
-                        }
-                        if (!ch.userData._xrayMat) {
-                            ch.userData._xrayMat = ch.userData._origMat.clone();
-                            ch.userData._xrayMat.transparent = true;
-                            ch.userData._xrayMat.opacity = 0.22;
-                            ch.userData._xrayMat.depthWrite = false;
-                        }
-                        ch.material = ch.userData._xrayMat;
-                    } else if (ch.userData._origMatSaved) {
-                        ch.material = ch.userData._origMat;
-                    }
-                }
-            });
-        }
-
+        // BİNA İÇİNE GİRİNCE OTOMATİK 1. ŞAHIS (FPS), DIŞARI ÇIKINCA OTOMATİK 3. ŞAHIS (TPS)
         function updateIndoorCutawayTransparency() {
             const now = performance.now();
-            if (now - lastIndoorCheckTime < 100) return; // Saniyede 10 kez çalışır, sıfır kasma!
+            if (now - lastIndoorCheckTime < 120) return;
             lastIndoorCheckTime = now;
 
-            const focusPos = state.inVehicle ? state.inVehicle.pos : player.pos;
-            const camPos = camera.position;
-            const camDist = Math.hypot(camPos.x - focusPos.x, camPos.z - focusPos.z);
+            if (state.inVehicle) return;
 
-            // 1. Oyuncu bir binanın içindemi kontrol et
-            let playerInsideBuilding = false;
+            const pPos = player.pos;
+            let hasRoofOverhead = false;
             for (let i = 0; i < placedStructures.length; i++) {
                 const s = placedStructures[i];
-                if (Math.abs(s.pos.x - focusPos.x) < GRID * 0.8 && Math.abs(s.pos.z - focusPos.z) < GRID * 0.8) {
-                    if (['ceiling_tile', 'floor_slab', 'roof', 'roof_hip'].includes(s.type) && s.pos.y >= focusPos.y - 0.3) {
-                        playerInsideBuilding = true;
+                if (Math.abs(s.pos.x - pPos.x) < GRID * 0.72 && Math.abs(s.pos.z - pPos.z) < GRID * 0.72) {
+                    if (['ceiling_tile', 'floor_slab', 'roof', 'roof_hip'].includes(s.type) && s.pos.y >= pPos.y - 0.3) {
+                        hasRoofOverhead = true;
                         break;
                     }
                 }
             }
 
-            const newFaded = new Set();
-            const abx = focusPos.x - camPos.x;
-            const abz = focusPos.z - camPos.z;
-            const abLenSq = abx * abx + abz * abz;
+            if (hasRoofOverhead && !state.firstPerson) {
+                autoIndoorFpsActive = true;
+                toggleCameraViewMode();
+            } else if (!hasRoofOverhead && autoIndoorFpsActive && state.firstPerson) {
+                autoIndoorFpsActive = false;
+                toggleCameraViewMode();
+            }
+        }
 
-            for (let i = 0; i < placedStructures.length; i++) {
-                const s = placedStructures[i];
-                // Zemin taşlarını, yolları ve mobilyaları asla gizleme (böylece evin içi ve mobilyalar net görünür!)
-                if (['foundation', 'wood_deck', 'marble_floor', 'road', 'garden_path', 'bridge'].includes(s.type) || s.type.startsWith('furniture_')) {
-                    continue;
-                }
+        // DİNAMİK ENGEL ÖNLEYİCİ KAMERA HESABI (Binaları saydamlaştırmadan kamerayı duvarların önüne çeker!)
+        function computeDynamicSafeCameraDistance(focusTarget, desiredHorizDist, camAngle, desiredCamY) {
+            let safeDist = desiredHorizDist;
+            const dirX = -Math.sin(camAngle);
+            const dirZ = -Math.cos(camAngle);
 
-                const dx = Math.abs(s.pos.x - focusPos.x);
-                const dz = Math.abs(s.pos.z - focusPos.z);
-                if (dx > 34 || dz > 34) continue;
+            // Karakterden kameraya doğru 1.5m adımlarla kontrol et: Arada bina duvarı varsa kamerayı duvarın hemen önüne çek!
+            for (let step = 2.0; step <= desiredHorizDist; step += 1.4) {
+                const testX = focusTarget.x + dirX * step;
+                const testZ = focusTarget.z + dirZ * step;
+                const tRatio = step / Math.max(1, desiredHorizDist);
+                const testY = focusTarget.y + 1.8 + (desiredCamY - (focusTarget.y + 1.8)) * tRatio;
 
-                let shouldFade = false;
+                // Bu noktada yüksek bir bina duvarı, çatı veya kapalı blok var mı?
+                let blockedByBuilding = false;
+                for (let i = 0; i < placedStructures.length; i++) {
+                    const s = placedStructures[i];
+                    if (Math.abs(testX - s.pos.x) > 2.6 || Math.abs(testZ - s.pos.z) > 2.6) continue;
+                    if (['foundation', 'wood_deck', 'marble_floor', 'road', 'garden_path', 'bridge', 'street_light'].includes(s.type) || s.type.startsWith('furniture_')) continue;
 
-                // A) Oyuncu bina içindeyse başının üstündeki çatı ve üst katları saydamlaştır (Evin içi maket gibi açılır!)
-                if (playerInsideBuilding && dx < GRID * 2.6 && dz < GRID * 2.6) {
-                    if (['roof', 'roof_hip', 'ceiling_tile', 'floor_slab', 'pergola'].includes(s.type) && s.pos.y >= focusPos.y - 0.2) {
-                        shouldFade = true;
-                    } else if (s.pos.y > focusPos.y + 0.5) {
-                        shouldFade = true;
+                    // Kamera ışını bu yapı bloğunun yüksekliğinin içinden geçiyorsa:
+                    if (testY >= s.pos.y - 0.3 && testY <= s.pos.y + GRID + 1.2) {
+                        blockedByBuilding = true;
+                        break;
                     }
                 }
 
-                // B) Kamera ile Karakter arasına giren duvar ve binaları saydamlaştır (Yoğun sokaklarda ve oda içinde görüşü açar!)
-                if (!shouldFade && !state.firstPerson && abLenSq > 1.0 && s.pos.y + GRID >= focusPos.y + 0.5) {
-                    const apx = s.pos.x - camPos.x;
-                    const apz = s.pos.z - camPos.z;
-                    const t = (apx * abx + apz * abz) / abLenSq;
-                    // Kamera (t=0) ile Karakter (t=1) arasındaki koridorda kalan tüm yapılar
-                    if (t > 0.08 && t < 0.98) {
-                        const closestX = camPos.x + t * abx;
-                        const closestZ = camPos.z + t * abz;
-                        const distToLine = Math.hypot(s.pos.x - closestX, s.pos.z - closestZ);
-                        if (distToLine < 4.2) {
-                            shouldFade = true;
-                        }
-                    }
-                }
-
-                if (shouldFade) {
-                    newFaded.add(s);
-                    if (!fadedStructuresSet.has(s)) {
-                        setStructureOpacity(s, true);
-                    }
+                if (blockedByBuilding) {
+                    safeDist = Math.max(3.2, step - 1.5);
+                    break;
                 }
             }
-
-            // Artık kameranın önünü kapatmayan yapıları normal opak haline döndür
-            fadedStructuresSet.forEach(oldS => {
-                if (!newFaded.has(oldS)) {
-                    setStructureOpacity(oldS, false);
-                }
-            });
-            fadedStructuresSet.clear();
-            newFaded.forEach(s => fadedStructuresSet.add(s));
+            return safeDist;
         }
 
         // ====================================================
@@ -6515,12 +6475,12 @@
             }
             if (promptBox) promptBox.classList.toggle('hidden', !showPrompt);
 
-            // Smooth First-Person (FPS) or Third-Person (TPS) Camera Follow (Yukarı-Aşağı Tam Bakış Destekli)
+            // DİNAMİK AKILLI KAMERA SİSTEMİ (Bina İçinde Otomatik 1. Şahıs + Dışarıda Bina Çarpışmasını Önleyen Yaylı Kamera)
             const focusTarget = state.inVehicle ? state.inVehicle.pos : player.pos;
             if (state.firstPerson) {
                 if (!state.inVehicle) player.mesh.visible = false;
-                const eyeHeight = 2.35;
-                const forwardOffset = state.inVehicle ? 1.2 : 0.35;
+                const eyeHeight = 2.30;
+                const forwardOffset = state.inVehicle ? 1.2 : 0.25;
                 const camX = focusTarget.x + Math.sin(state.cameraAngle) * forwardOffset;
                 const camZ = focusTarget.z + Math.cos(state.cameraAngle) * forwardOffset;
                 const camY = focusTarget.y + eyeHeight;
@@ -6533,17 +6493,28 @@
                 camera.lookAt(lookX, lookY, lookZ);
             } else {
                 if (!state.inVehicle) player.mesh.visible = true;
-                // 3. Şahısta dikey açıya (cameraPitch) göre küresel kamera yörüngesi ve gökyüzüne bakış!
-                const tpsPitch = state.cameraPitch; // Pozitif değer: yukarı/gökyüzüne bakar, Negatif değer: tepeden aşağı bakar
-                const horizDist = Math.max(6, Math.cos(tpsPitch * 0.7) * state.cameraDistance);
-                const camX = focusTarget.x - Math.sin(state.cameraAngle) * horizDist;
-                const camZ = focusTarget.z - Math.cos(state.cameraAngle) * horizDist;
-                const rawCamY = focusTarget.y + 2.2 - Math.sin(tpsPitch) * (state.cameraDistance * 0.65);
-                const minGroundCamY = Math.max(0, getNaturalTerrainHeight(camX, camZ)) + 1.1;
+                const tpsPitch = state.cameraPitch;
+                const desiredHorizDist = Math.max(5, Math.cos(tpsPitch * 0.7) * state.cameraDistance);
+                const desiredRawCamY = focusTarget.y + 2.4 - Math.sin(tpsPitch) * (state.cameraDistance * 0.65);
+
+                // Kamera ile karakter arasında bina varsa kamerayı binanın arkasına sokma, otomatik öne yaklaştır!
+                const targetSafeDist = computeDynamicSafeCameraDistance(focusTarget, desiredHorizDist, state.cameraAngle, desiredRawCamY);
+                // Engelle karşılaşınca hızlıca yaklaş (0.35), engel kalkınca yumuşakça uzaklaş (0.12)
+                const smoothFactor = targetSafeDist < dynamicCamCurrentDist ? 0.35 : 0.12;
+                dynamicCamCurrentDist += (targetSafeDist - dynamicCamCurrentDist) * smoothFactor;
+
+                const camX = focusTarget.x - Math.sin(state.cameraAngle) * dynamicCamCurrentDist;
+                const camZ = focusTarget.z - Math.cos(state.cameraAngle) * dynamicCamCurrentDist;
+
+                // Kamera yaklaştığında yüksekliği koru ki dar sokakta karakteri net bir açıyla yukarıdan görsün
+                const distRatio = dynamicCamCurrentDist / Math.max(1, desiredHorizDist);
+                const dynamicHeightBoost = (1 - distRatio) * 3.5;
+                const rawCamY = focusTarget.y + 2.2 - Math.sin(tpsPitch) * (dynamicCamCurrentDist * 0.65) + dynamicHeightBoost;
+                const minGroundCamY = Math.max(0, getNaturalTerrainHeight(camX, camZ)) + 1.2;
                 const camY = Math.max(minGroundCamY, rawCamY);
 
-                camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.18);
-                const lookTargetY = focusTarget.y + 2.0 + Math.max(0, tpsPitch) * 18.0;
+                camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.24);
+                const lookTargetY = focusTarget.y + 1.9 + Math.max(0, tpsPitch) * 18.0;
                 camera.lookAt(focusTarget.x, lookTargetY, focusTarget.z);
             }
 
