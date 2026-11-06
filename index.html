@@ -125,32 +125,18 @@
                     <span id="safe-zone-badge" class="hidden bg-emerald-600 text-white px-1 rounded text-[9px] ml-0.5">🛡️GÜVENLİ</span>
                 </button>
 
-                <!-- Resources Compact -->
-                <div class="hidden sm:flex items-center gap-2 text-[11px] font-extrabold px-1.5 border-l border-slate-700">
-                    <span class="text-amber-300">🌲<span id="res-wood">0</span></span>
-                    <span class="text-stone-300">🪨<span id="res-stone">0</span></span>
-                    <span class="text-sky-300">⚙️<span id="res-metal">0</span></span>
-                </div>
-
                 <!-- Layer Selector -->
-                <div class="border-l border-slate-700 pl-1.5 flex items-center gap-1">
+                <div class="border-l border-slate-700 pl-1.5 flex items-center gap-1" title="Üst Katlara İnşa Etmek İçin Kat Seçin">
                     <span class="text-[9px] uppercase text-slate-400 font-bold">Kat</span>
                     <button onclick="changeBuildLayer(-1)" class="w-5 h-5 rounded bg-slate-800 active:bg-sky-600 text-white font-bold text-xs flex items-center justify-center border border-slate-600">-</button>
                     <span id="build-layer-label" class="font-extrabold text-sky-400 text-xs w-4 text-center">0</span>
                     <button onclick="changeBuildLayer(1)" class="w-5 h-5 rounded bg-slate-800 active:bg-sky-600 text-white font-bold text-xs flex items-center justify-center border border-slate-600">+</button>
                 </div>
 
-                <button onclick="toggleLevelLock()" id="btn-level-lock" class="bg-emerald-700/90 px-2 py-0.5 rounded-lg text-[10px] font-extrabold text-white border border-emerald-400 flex items-center gap-1">
-                    <i class="fas fa-ruler-combined"></i> <span id="level-lock-label">Terazi: AÇIK</span>
-                </button>
-
-                <button onclick="toggleTouchTargetMode()" id="btn-aim-mode" class="bg-slate-800 px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-300 border border-slate-600 flex items-center gap-1">
-                    <i class="fas fa-crosshairs"></i> <span id="aim-mode-label">DokunKur</span>
-                </button>
-
                 <button onclick="toggleCameraViewMode()" id="btn-cam-mode" class="bg-sky-700/90 px-2 py-0.5 rounded-lg text-[10px] font-extrabold text-white border border-sky-400 flex items-center gap-1">
                     <i class="fas fa-eye"></i> <span id="cam-mode-label">3.Şahıs</span>
                 </button>
+
             </div>
 
             <!-- Row 2: Compact Menu Pills + Color Swatches in a single sleek row -->
@@ -356,15 +342,23 @@
     <!-- MODAL 2: VILLAGE & STRUCTURE ARCHITECT CATALOG -->
     <div id="inventory-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-4xl rounded-3xl border border-sky-400/40 shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
-            <div class="p-4 border-b border-slate-700/80 flex justify-between items-center bg-slate-900/60">
+            <div class="p-3.5 border-b border-slate-700/80 flex justify-between items-center bg-slate-900/60">
                 <div class="flex items-center gap-3">
-                    <span class="text-2xl">🏡</span>
+                    <span class="text-2xl">⭐</span>
                     <div>
-                        <h2 class="text-lg md:text-xl font-black text-sky-400">KÖY MİMARİSİ & YAPI KATALOĞU</h2>
-                        <p class="text-xs text-slate-300">Bir yapı malzemesine dokunarak seçili alt bar slotuna ekleyin veya hazır bina kurun.</p>
+                        <h2 class="text-lg md:text-xl font-black text-sky-400">YAPI, MOBİLYA & FAVORİ KATALOĞU</h2>
+                        <p class="text-xs text-slate-300">Aşağıdan doldurmak istediğiniz <b>Favori Kutusunu (1-15)</b> seçin, sonra istediğiniz ürüne dokunun!</p>
                     </div>
                 </div>
                 <button onclick="toggleInventoryModal()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-rose-600 text-white font-bold text-lg">✕</button>
+            </div>
+            <!-- 15 Favori Kutusu Önizleme ve Seçim Çubuğu -->
+            <div class="px-4 py-2 bg-slate-900/90 border-b border-slate-800 flex flex-col gap-1">
+                <div class="flex justify-between items-center text-[11px] font-bold text-amber-300">
+                    <span>⭐ Doldurulacak Favori Kutusu: <b id="catalog-selected-slot-label" class="text-white">Kutu #1</b> (Kutuya dokunarak değiştirebilirsiniz)</span>
+                    <button onclick="resetFavoriteHotbar()" class="text-[10px] bg-slate-800 hover:bg-rose-700 text-slate-300 px-2 py-0.5 rounded-lg border border-slate-600">Varsayılana Sıfırla</button>
+                </div>
+                <div id="catalog-slot-picker" class="flex items-center gap-1 overflow-x-auto custom-scroll py-1"></div>
             </div>
             <div id="catalog-content" class="p-4 overflow-y-auto custom-scroll space-y-5">
                 <!-- Populated by JS -->
@@ -1654,7 +1648,7 @@
         // 🏎️✈️🚢 ULTRA-HD AERODİNAMİK 25 ARAÇ MODELLEME MOTORU (SIFIR KASMA ÖNBELLEKLİ)
         // ====================================================
         const VEH_GEO_CACHE = {};
-        constemergencyStrobes = []; // Gece/Gündüz çakar lambaları
+        const emergencyStrobes = []; // Gece/Gündüz çakar lambaları
 
         function createExtrudedProfileGeo(cacheKey, points2D, width, bevelSize = 0.08) {
             const fullKey = `${cacheKey}_${width}_${bevelSize}`;
@@ -2744,8 +2738,7 @@
                 state.cameraAngle = state.inVehicle ? state.inVehicle.angle : player.angle;
                 state.cameraPitch = -0.05;
                 state.touchAimFront = true;
-                document.getElementById('aim-mode-label').innerText = 'Önüne Kur';
-                btn.className = 'bg-amber-500 px-2.5 py-1 rounded-xl text-xs font-black text-slate-950 border border-white flex items-center gap-1 shadow';
+                btn.className = 'bg-amber-500 px-2.5 py-0.5 rounded-lg text-[10px] font-black text-slate-950 border border-white flex items-center gap-1 shadow';
                 lbl.innerText = '1. Şahıs (FPS)';
                 crosshair.classList.remove('hidden');
                 showToast('👁️ Birinci Sınıf (FPS) Görüş Açısı Aktif!', 'text-amber-300');
@@ -3121,7 +3114,7 @@
         function updateRayTarget(clientX, clientY, forceImmediate = false) {
             if (!groundMesh) return;
             const now = performance.now();
-            if (!forceImmediate && now - lastRayTime < 45) return; // Kasma önleyici 45ms throttle
+            if (!forceImmediate && now - lastRayTime < 40) return;
             lastRayTime = now;
 
             pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
@@ -3129,30 +3122,45 @@
             raycaster.setFromCamera(pointerNDC, camera);
 
             hoveredStructure = null;
-            // Sadece sökme modundayken veya sağ tıklamada yakın yapılara raycast at!
-            if (placedStructures.length > 0 && (state.deleteMode || forceImmediate || state.hotbar[state.selectedSlot] === 'axe_pick')) {
+            const activeItem = state.hotbar[state.selectedSlot] || '';
+            const isFurniture = activeItem.startsWith('furniture_') || activeItem === 'bench';
+            let floorHitPoint = null;
+
+            if (placedStructures.length > 0) {
                 const nearMeshes = [];
                 for (let i = 0; i < placedStructures.length; i++) {
                     const s = placedStructures[i];
-                    if (Math.abs(s.pos.x - player.pos.x) < 38 && Math.abs(s.pos.z - player.pos.z) < 38) {
+                    if (Math.abs(s.pos.x - player.pos.x) < 36 && Math.abs(s.pos.z - player.pos.z) < 36) {
                         nearMeshes.push(s.mesh);
                     }
                 }
                 if (nearMeshes.length > 0) {
                     const structHits = raycaster.intersectObjects(nearMeshes, true);
-                    if (structHits.length > 0) {
-                        let hitObj = structHits[0].object;
+                    for (let h = 0; h < structHits.length; h++) {
+                        let hitObj = structHits[h].object;
                         while (hitObj.parent && hitObj.parent !== scene) {
                             hitObj = hitObj.parent;
                         }
-                        hoveredStructure = placedStructures.find(s => s.mesh === hitObj) || null;
+                        const st = placedStructures.find(s => s.mesh === hitObj);
+                        if (!st) continue;
+                        if (!hoveredStructure) hoveredStructure = st;
+
+                        // Mobilya yerleştirirken evin içindeki zemin/kat plakasına tıklanırsa tam orayı hedef al!
+                        if (isFurniture && ['foundation', 'wood_deck', 'marble_floor', 'ceiling_tile', 'floor_slab'].includes(st.type)) {
+                            floorHitPoint = structHits[h].point;
+                            break;
+                        }
                     }
                 }
             }
 
-            const hits = raycaster.intersectObject(groundMesh);
-            if (hits.length > 0) {
-                state.mouseWorld.copy(hits[0].point);
+            if (floorHitPoint) {
+                state.mouseWorld.copy(floorHitPoint);
+            } else {
+                const hits = raycaster.intersectObject(groundMesh);
+                if (hits.length > 0) {
+                    state.mouseWorld.copy(hits[0].point);
+                }
             }
         }
 
@@ -4146,79 +4154,66 @@
                 signGroup.add(dome, ring, label);
 
             } else if (buildingType === 'prefab_supermarket') {
-                // 🛒 YÜKSEK KALİTELİ SÜPERMARKET (URAS MARKET) İÇ VE DIŞ DETAYLARI
-                const greenMat = getSharedMaterial(null, 0x16a34a, 0.5);
-                const yellowMat = getSharedMaterial(null, 0xfacc15, 0.4);
-                const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.4);
-                const darkMat = getSharedMaterial(null, 0x1e293b, 0.6);
+                // 🏬 MODERN ŞEHİR HİPERMARKET & AVM DETAYLARI (Manav tentesi kaldırıldı, modern AVM cephesi eklendi!)
+                const navyMat = getSharedMaterial(null, 0x0f172a, 0.35, 0.4);
+                const skyMat = getSharedMaterial(null, 0x0284c7, 0.3, 0.5);
+                const goldMat = getSharedMaterial(null, 0xfacc15, 0.3, 0.6);
+                const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.3);
 
-                // 1. Ön Cephe Yeşil-Sarı Çizgili Market Tente Saçağı (Awning)
-                for (let i = -7; i <= 7; i++) {
-                    const stripe = new THREE.Mesh(
-                        new THREE.BoxGeometry(1.15, 0.22, 2.2),
-                        i % 2 === 0 ? greenMat : whiteMat
-                    );
-                    stripe.position.set(i * 1.15, GRID - 0.35, 1.0);
-                    stripe.rotation.x = 0.22;
-                    signGroup.add(stripe);
-                }
+                // 1. Modern Antrasit-Mavi Giriş Kanopisi (LED Spot Işıklı Düz Tavan)
+                const canopy = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.45, 2.6), navyMat);
+                canopy.position.set(0, GRID + 0.1, 1.3);
+                const canopyTrim = new THREE.Mesh(new THREE.BoxGeometry(10.7, 0.16, 2.7), goldMat);
+                canopyTrim.position.set(0, GRID + 0.32, 1.3);
+                signGroup.add(canopy, canopyTrim);
 
-                // 2. Çatı Üstü Dev Işıklı "🛒 URAS SÜPERMARKET" Tabelası
-                const crownBoard = new THREE.Mesh(new THREE.BoxGeometry(11.5, 1.8, 0.45), greenMat);
-                crownBoard.position.set(0, GRID + 1.1, -0.2);
-                const goldTrim = new THREE.Mesh(new THREE.BoxGeometry(11.8, 2.0, 0.35), yellowMat);
-                goldTrim.position.set(0, GRID + 1.1, -0.25);
-                const marketSprite = createPlayerNameTagSprite('🛒 URAS SÜPERMARKET', 'rgba(22, 163, 74, 0.95)', '#facc15');
-                marketSprite.scale.set(6.2, 1.35, 1);
-                marketSprite.position.set(0, GRID + 2.6, 0.2);
+                // 2. Çatı Üstü Modern "🏬 URAS AVM & HİPERMARKET" Prestij Tabelası
+                const crownBoard = new THREE.Mesh(new THREE.BoxGeometry(13.5, 2.1, 0.5), navyMat);
+                crownBoard.position.set(0, GRID * 2 + 1.1, -0.2);
+                const goldTrim = new THREE.Mesh(new THREE.BoxGeometry(13.8, 2.3, 0.38), skyMat);
+                goldTrim.position.set(0, GRID * 2 + 1.1, -0.26);
+                const marketSprite = createPlayerNameTagSprite('🏬 URAS HİPERMARKET', 'rgba(2, 132, 199, 0.96)', '#facc15');
+                marketSprite.scale.set(6.8, 1.45, 1);
+                marketSprite.position.set(0, GRID * 2 + 2.8, 0.25);
                 signGroup.add(crownBoard, goldTrim, marketSprite);
 
-                // 3. İç Mekan: Renkli Meyve-Sebze & Ürün Reyonları (Gondol Raflar)
-                const shelfMat = getSharedMaterial('wood', 0x78350f, 0.7);
-                const prodColors = [0xef4444, 0xfacc15, 0x3b82f6, 0x22c55e, 0xf97316];
+                // 3. Cadde Kenarı Işıklı AVM Totem Kulesi
+                const totemPole = new THREE.Mesh(new THREE.BoxGeometry(1.4, 6.5, 0.6), navyMat);
+                totemPole.position.set(-8.5, 3.25, 2.5);
+                const totemNeon = new THREE.Mesh(new THREE.BoxGeometry(1.5, 4.8, 0.66), skyMat);
+                totemNeon.position.set(-8.5, 3.6, 2.5);
+                signGroup.add(totemPole, totemNeon);
+
+                // 4. İç Mekan: Modern Market Koridorları, Soğutucu Dolaplar ve Yazar Kasalar
+                const shelfMat = getSharedMaterial(null, 0x334155, 0.5, 0.4);
+                const prodColors = [0x38bdf8, 0xfacc15, 0xef4444, 0x22c55e];
                 [-4.2, 4.2].forEach((rx, rIdx) => {
-                    const gondola = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.7, 5.2), shelfMat);
-                    gondola.position.set(rx, 1.0, -5.8);
+                    const gondola = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.85, 5.0), shelfMat);
+                    gondola.position.set(rx, 0.95, -5.8);
                     signGroup.add(gondola);
-                    // Raflardaki Renkli Ürün Kutuları
-                    for (let pz = -7.8; pz <= -3.8; pz += 1.0) {
+                    for (let pz = -7.6; pz <= -4.0; pz += 1.2) {
                         const prod = new THREE.Mesh(
-                            new THREE.BoxGeometry(1.65, 0.38, 0.65),
-                            getSharedMaterial(null, prodColors[(Math.abs(Math.round(pz)) + rIdx) % prodColors.length], 0.4)
+                            new THREE.BoxGeometry(1.42, 0.36, 0.65),
+                            getSharedMaterial(null, prodColors[(Math.abs(Math.round(pz)) + rIdx) % prodColors.length], 0.3)
                         );
-                        prod.position.set(rx, 1.45, pz);
+                        prod.position.set(rx, 1.5, pz);
                         signGroup.add(prod);
                     }
                 });
 
-                // 4. İç Mekan: Arka Duvar Işıklı Soğutucu İçecek Dolapları
-                const cooler = new THREE.Mesh(new THREE.BoxGeometry(8.5, 2.6, 0.7), darkMat);
-                cooler.position.set(0, 1.45, -10.6);
+                const cooler = new THREE.Mesh(new THREE.BoxGeometry(9.0, 2.7, 0.75), navyMat);
+                cooler.position.set(0, 1.45, -10.5);
                 const coolerGlass = new THREE.Mesh(
-                    new THREE.BoxGeometry(8.1, 2.2, 0.76),
-                    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 })
+                    new THREE.BoxGeometry(8.6, 2.25, 0.8),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 })
                 );
-                coolerGlass.position.set(0, 1.45, -10.6);
-                signGroup.add(cooler, coolerGlass);
+                coolerGlass.position.set(0, 1.45, -10.5);
 
-                // 5. İç Mekan: Kasiyer Bankosu ve Yazar Kasa Ekranı
-                const counter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.05, 1.2), whiteMat);
-                counter.position.set(-3.2, 0.65, -1.8);
-                const belt = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.08, 0.8), darkMat);
-                belt.position.set(-3.0, 0.65, -1.8);
-                const register = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.5), yellowMat);
-                register.position.set(-4.1, 1.35, -1.8);
-                signGroup.add(counter, belt, register);
-
-                // 6. Dış Mekan: Girişin Yanında Metal Alışveriş Arabaları Durağı
-                const metalMat = getSharedMaterial(null, 0xcbd5e1, 0.3, 0.85);
-                for (let c = 0; c < 3; c++) {
-                    const cart = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 1.05), metalMat);
-                    cart.position.set(5.2 + c * 0.95, 0.55, 1.3);
-                    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-                    handle.position.set(5.2 + c * 0.95, 0.95, 1.8);
-                    signGroup.add(cart, handle);
-                }
+                const counter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.05, 1.1), whiteMat);
+                counter.position.set(-3.4, 0.6, -2.0);
+                const register = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.45), goldMat);
+                register.position.set(-4.2, 1.3, -2.0);
+                signGroup.add(cooler, coolerGlass, counter, register);
             }
 
             scene.add(signGroup);
@@ -4414,25 +4409,28 @@
                 if (!silent) showToast('🔬 Bilim & Teknoloji Akademisi (Okul V3) kuruldu! (+14 Nüfus ve +70 TL/15sn Gelir)', 'text-sky-300');
 
             } else if (prefabId === 'prefab_supermarket') {
-                for (let dx = -2; dx <= 2; dx++) {
-                    for (let dz = -1; dz <= 1; dz++) {
-                        placeSingleBlock('marble_floor', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0xffffff);
-                        placeSingleBlock('ceiling_tile', cx + dx * GRID, baseY, cz + dz * GRID, 0, 0xf8fafc);
-                        placeSingleBlock('ceiling_tile', cx + dx * GRID, baseY + GRID, cz + dz * GRID, 0, 0x16a34a);
+                for (let floor = 0; floor < 2; floor++) {
+                    const fy = baseY + floor * GRID;
+                    const wallCol = floor === 0 ? 0x0f172a : 0x0284c7;
+                    for (let dx = -2; dx <= 2; dx++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            if (floor === 0) placeSingleBlock('marble_floor', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xf8fafc);
+                            if (!(dx === 2 && dz === -1 && floor === 0)) {
+                                placeSingleBlock('ceiling_tile', cx + dx * GRID, fy, cz + dz * GRID, 0, floor === 1 ? 0x0f172a : 0xf8fafc);
+                            }
+                        }
+                        if (floor === 0) placeSingleBlock('marble_floor', cx + dx * GRID, baseY, cz + 2 * GRID, 0, 0xe2e8f0);
                     }
-                    placeSingleBlock('garden_path', cx + dx * GRID, baseY, cz + 2 * GRID, 0, 0xcbd5e1);
+                    buildRoomPerimeter(cx, cz, fy, -2, 2, -1, 1, 'window', wallCol, floor === 0 ? 0 : 99, 1);
+                    if (floor === 0) {
+                        placeSingleBlock('garage_arch', cx, fy, cz + GRID, 0, 0xfacc15, true);
+                        placeSingleBlock('stairs', cx + 2 * GRID, fy, cz - GRID, 0, 0x0284c7);
+                    }
                 }
-                buildRoomPerimeter(cx, cz, baseY, -2, 2, -1, 1, 'concrete_wall', 0xf8fafc, 0, 1);
-                placeSingleBlock('window', cx - 2 * GRID, baseY, cz + GRID, 0, 0x16a34a, true);
-                placeSingleBlock('window', cx - 1 * GRID, baseY, cz + GRID, 0, 0x16a34a, true);
-                placeSingleBlock('garage_arch', cx, baseY, cz + GRID, 0, 0xfacc15, true);
-                placeSingleBlock('window', cx + 1 * GRID, baseY, cz + GRID, 0, 0x16a34a, true);
-                placeSingleBlock('window', cx + 2 * GRID, baseY, cz + GRID, 0, 0x16a34a, true);
-
                 signMesh = createArchitecturalSign('prefab_supermarket', cx, baseY, cz + GRID + EDGE);
                 spawnCitizen(cx - 2, cz + 9);
                 spawnCitizen(cx + 2, cz + 9);
-                if (!silent) showToast('🛒 Uras Süpermarket kuruldu! İçindeki reyonları gezebilirsiniz (+5 Nüfus ve +85 TL/15sn Ticaret Geliri)', 'text-emerald-300');
+                if (!silent) showToast('🏬 2 Katlı Uras Şehir Hipermarketi kuruldu! (+5 Nüfus ve +85 TL/15sn Ticaret Geliri)', 'text-sky-300');
 
             } else if (prefabId === 'prefab_police') {
                 for (let floor = 0; floor < 2; floor++) {
@@ -4757,7 +4755,7 @@
 
             for (let i = placedStructures.length - 1; i >= 0; i--) {
                 const s = placedStructures[i];
-                if (Math.abs(s.pos.x - gx) < 0.4 && Math.abs(s.pos.y - gy) < 0.4 && Math.abs(s.pos.z - gz) < 0.4 && s.type === itemId && s.rotation === state.buildRotation) {
+                if (Math.abs(s.pos.x - gx) < 0.35 && Math.abs(s.pos.y - gy) < 0.35 && Math.abs(s.pos.z - gz) < 0.35 && s.type === itemId && (itemId.startsWith('furniture_') || s.rotation === state.buildRotation)) {
                     scene.remove(s.mesh);
                     placedStructures.splice(i, 1);
                 }
@@ -4971,39 +4969,12 @@
             });
         }
 
-        function renderHotbar() {
-            const container = document.getElementById('hotbar-container');
-            container.innerHTML = '';
-            state.hotbar.forEach((itemId, idx) => {
-                const item = CATALOG.find(c => c.id === itemId) || CATALOG[0];
-                const btn = document.createElement('button');
-                const isSelected = state.selectedSlot === idx && !state.deleteMode;
-                btn.className = `ergo-btn min-w-[54px] h-14 rounded-xl border border-slate-600 bg-slate-900/90 flex flex-col items-center justify-center px-1 relative shrink-0 ${isSelected ? 'slot-active' : ''}`;
-                btn.innerHTML = `
-                    <span class="absolute top-0.5 left-1 text-[8px] font-bold text-slate-400">${idx + 1}</span>
-                    <span class="absolute top-0.5 right-1 text-[8px] font-black text-emerald-400">${item.price ? item.price + '₺' : ''}</span>
-                    <span class="text-lg leading-none mt-1">${item.icon}</span>
-                    <span class="text-[8px] font-extrabold text-slate-200 truncate max-w-[46px] mt-0.5">${item.name.split(' ')[0]}</span>
-                `;
-                btn.onclick = () => {
-                    state.selectedSlot = idx;
-                    state.deleteMode = false;
-                    updateDeleteButtonUI();
-                    renderHotbar();
-                    updateGhostPreviewModel();
-                    showToast(`Slot #${idx + 1}: ${item.icon} ${item.name} (${item.price || 0} TL)`);
-                };
-                container.appendChild(btn);
-            });
-            updateDeleteButtonUI();
-        }
+        
 
         function updateHUD() {
             document.getElementById('res-money').innerText = state.money;
-            document.getElementById('res-wood').innerText = state.resources.wood;
-            document.getElementById('res-stone').innerText = state.resources.stone;
-            document.getElementById('res-metal').innerText = state.resources.metal;
-            document.getElementById('build-layer-label').innerText = state.buildLayer;
+            const layerEl = document.getElementById('build-layer-label');
+            if (layerEl) layerEl.innerText = state.buildLayer;
             const hpPct = Math.max(0, Math.min(100, (state.health / state.maxHealth) * 100));
             const hpFill = document.getElementById('hp-bar-fill');
             const hpLbl = document.getElementById('hp-label');
@@ -5343,9 +5314,92 @@
             if (show) renderCatalogModal();
         }
 
+        // Kayıtlı 15 Favori Kutusunu Yükle
+        try {
+            const savedFavs = JSON.parse(localStorage.getItem('cw_fav_hotbar_v1'));
+            if (Array.isArray(savedFavs) && savedFavs.length === 15) {
+                state.hotbar = savedFavs;
+            }
+        } catch (e) {}
+
+        function saveFavoriteHotbar() {
+            localStorage.setItem('cw_fav_hotbar_v1', JSON.stringify(state.hotbar));
+        }
+
+        function resetFavoriteHotbar() {
+            state.hotbar = [
+                'foundation', 'marble_floor', 'ceiling_tile', 'brick_wall', 'concrete_wall',
+                'door', 'window', 'roof', 'stairs', 'furniture_bed',
+                'furniture_sofa', 'furniture_kitchen', 'furniture_pc_desk', 'prefab_cottage', 'axe_pick'
+            ];
+            saveFavoriteHotbar();
+            renderHotbar();
+            renderCatalogModal();
+            updateGhostPreviewModel();
+            showToast('⭐ 15 Favori Kutusu varsayılan popüler eşyalarla yenilendi!', 'text-amber-300');
+        }
+
+        function renderHotbar() {
+            const container = document.getElementById('hotbar-container');
+            if (!container) return;
+            container.innerHTML = '';
+            state.hotbar.forEach((itemId, idx) => {
+                const item = CATALOG.find(c => c.id === itemId) || CATALOG[0];
+                const btn = document.createElement('button');
+                const isSelected = state.selectedSlot === idx && !state.deleteMode;
+                btn.className = `ergo-btn min-w-[54px] h-14 rounded-xl border border-slate-600 bg-slate-900/90 flex flex-col items-center justify-center px-1 relative shrink-0 ${isSelected ? 'slot-active' : ''}`;
+                btn.title = `Favori Kutusu #${idx + 1}: ${item.name} (Değiştirmek için Katalog'a basın)`;
+                btn.innerHTML = `
+                    <span class="absolute top-0.5 left-1 text-[8px] font-bold text-slate-400">${idx + 1}</span>
+                    <span class="absolute top-0.5 right-1 text-[8px] font-black text-emerald-400">${item.price ? item.price + '₺' : ''}</span>
+                    <span class="text-lg leading-none mt-1">${item.icon}</span>
+                    <span class="text-[8px] font-extrabold text-slate-200 truncate max-w-[46px] mt-0.5">${item.name.split(' ')[0]}</span>
+                `;
+                btn.onclick = () => {
+                    state.selectedSlot = idx;
+                    state.deleteMode = false;
+                    updateDeleteButtonUI();
+                    renderHotbar();
+                    updateGhostPreviewModel();
+                    showToast(`⭐ Favori #${idx + 1}: ${item.icon} ${item.name} (${item.price || 0} TL)`);
+                };
+                container.appendChild(btn);
+            });
+            updateDeleteButtonUI();
+        }
+
         function renderCatalogModal() {
             const container = document.getElementById('catalog-content');
+            const slotPicker = document.getElementById('catalog-slot-picker');
+            const slotLbl = document.getElementById('catalog-selected-slot-label');
             if (!container) return;
+
+            if (slotLbl) {
+                const curItem = CATALOG.find(c => c.id === state.hotbar[state.selectedSlot]) || CATALOG[0];
+                slotLbl.innerText = `Kutu #${state.selectedSlot + 1} (${curItem.icon} ${curItem.name})`;
+            }
+
+            // Katalog üstündeki 1..15 Favori Kutusu Seçiciyi çiz
+            if (slotPicker) {
+                slotPicker.innerHTML = '';
+                state.hotbar.forEach((itemId, idx) => {
+                    const item = CATALOG.find(c => c.id === itemId) || CATALOG[0];
+                    const sBtn = document.createElement('button');
+                    const active = state.selectedSlot === idx;
+                    sBtn.className = `ergo-btn min-w-[46px] h-11 rounded-xl border flex flex-col items-center justify-center px-1 shrink-0 ${active ? 'bg-sky-600 border-white text-white shadow-lg scale-105' : 'bg-slate-800 border-slate-600 text-slate-300'}`;
+                    sBtn.innerHTML = `
+                        <span class="text-[8px] font-black">#${idx + 1}</span>
+                        <span class="text-sm leading-none">${item.icon}</span>
+                    `;
+                    sBtn.onclick = () => {
+                        state.selectedSlot = idx;
+                        renderHotbar();
+                        renderCatalogModal();
+                    };
+                    slotPicker.appendChild(sBtn);
+                });
+            }
+
             container.innerHTML = '';
             const categories = [...new Set(CATALOG.map(c => c.category))];
 
@@ -5356,12 +5410,16 @@
                 grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5';
 
                 CATALOG.filter(c => c.category === cat).forEach(item => {
+                    const isInHotbarIdx = state.hotbar.indexOf(item.id);
                     const card = document.createElement('button');
-                    card.className = 'ergo-btn bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 rounded-2xl p-2.5 text-left flex flex-col justify-between gap-1 shadow';
+                    card.className = `ergo-btn bg-slate-900/90 hover:bg-slate-800 border ${isInHotbarIdx !== -1 ? 'border-amber-400/70' : 'border-slate-700'} hover:border-sky-400 rounded-2xl p-2.5 text-left flex flex-col justify-between gap-1 shadow`;
                     card.innerHTML = `
                         <div class="flex items-center justify-between w-full">
                             <span class="text-2xl">${item.icon}</span>
-                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40">${item.price || 0} TL</span>
+                            <div class="flex items-center gap-1">
+                                ${isInHotbarIdx !== -1 ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">⭐#${isInHotbarIdx + 1}</span>` : ''}
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40">${item.price || 0} TL</span>
+                            </div>
                         </div>
                         <div class="font-extrabold text-xs text-white mt-1">${item.name}</div>
                         <div class="text-[10px] text-slate-400 leading-tight">${item.desc}</div>
@@ -5369,10 +5427,12 @@
                     card.onclick = () => {
                         state.hotbar[state.selectedSlot] = item.id;
                         state.deleteMode = false;
+                        saveFavoriteHotbar();
                         renderHotbar();
                         updateGhostPreviewModel();
+                        // Otomatik bir sonraki kutuya geçmek yerine hemen kullanabilmesi için katalogu kapat
                         toggleInventoryModal(false);
-                        showToast(`✅ ${item.icon} ${item.name} Slot #${state.selectedSlot + 1}'e eklendi!`);
+                        showToast(`⭐ ${item.icon} ${item.name} Favori Kutusu #${state.selectedSlot + 1}'e kaydedildi!`, 'text-amber-300');
                     };
                     grid.appendChild(card);
                 });
@@ -5563,37 +5623,112 @@
             return false;
         }
 
-        // BİNA İÇİNE GİRİNCE OTOMATİK 1. ŞAHIS (FPS) KAMERA GEÇİŞİ (Kasma Önleyici Saniyede 6 Kez Kontrol)
         let lastIndoorCheckTime = 0;
-        let autoIndoorFpsActive = false;
+        const fadedStructuresSet = new Set();
+
+        function setStructureOpacity(s, makeTransparent) {
+            if (!s || !s.mesh) return;
+            s.mesh.traverse(ch => {
+                if (ch.isMesh && !ch.userData.isSkirt && ch !== s.mesh.userData.lightHalo) {
+                    if (makeTransparent) {
+                        if (!ch.userData._origMatSaved) {
+                            ch.userData._origMat = ch.material;
+                            ch.userData._origMatSaved = true;
+                        }
+                        if (!ch.userData._xrayMat) {
+                            ch.userData._xrayMat = ch.userData._origMat.clone();
+                            ch.userData._xrayMat.transparent = true;
+                            ch.userData._xrayMat.opacity = 0.22;
+                            ch.userData._xrayMat.depthWrite = false;
+                        }
+                        ch.material = ch.userData._xrayMat;
+                    } else if (ch.userData._origMatSaved) {
+                        ch.material = ch.userData._origMat;
+                    }
+                }
+            });
+        }
 
         function updateIndoorCutawayTransparency() {
             const now = performance.now();
-            if (now - lastIndoorCheckTime < 150) return; // Her karede değil 150ms'de bir çalışır -> Sıfır Kasma!
+            if (now - lastIndoorCheckTime < 100) return; // Saniyede 10 kez çalışır, sıfır kasma!
             lastIndoorCheckTime = now;
 
-            if (state.inVehicle) return;
+            const focusPos = state.inVehicle ? state.inVehicle.pos : player.pos;
+            const camPos = camera.position;
+            const camDist = Math.hypot(camPos.x - focusPos.x, camPos.z - focusPos.z);
 
-            const pPos = player.pos;
-            let hasRoofOverhead = false;
+            // 1. Oyuncu bir binanın içindemi kontrol et
+            let playerInsideBuilding = false;
             for (let i = 0; i < placedStructures.length; i++) {
                 const s = placedStructures[i];
-                if (Math.abs(s.pos.x - pPos.x) < GRID * 0.75 && Math.abs(s.pos.z - pPos.z) < GRID * 0.75) {
-                    if (['ceiling_tile', 'floor_slab', 'roof', 'roof_hip'].includes(s.type) && s.pos.y >= pPos.y - 0.3) {
-                        hasRoofOverhead = true;
+                if (Math.abs(s.pos.x - focusPos.x) < GRID * 0.8 && Math.abs(s.pos.z - focusPos.z) < GRID * 0.8) {
+                    if (['ceiling_tile', 'floor_slab', 'roof', 'roof_hip'].includes(s.type) && s.pos.y >= focusPos.y - 0.3) {
+                        playerInsideBuilding = true;
                         break;
                     }
                 }
             }
 
-            // Bina içine girince otomatik 1. Şahıs (FPS) kameraya geç, binadan çıkınca eski haline dön!
-            if (hasRoofOverhead && !state.firstPerson) {
-                autoIndoorFpsActive = true;
-                toggleCameraViewMode();
-            } else if (!hasRoofOverhead && autoIndoorFpsActive && state.firstPerson) {
-                autoIndoorFpsActive = false;
-                toggleCameraViewMode();
+            const newFaded = new Set();
+            const abx = focusPos.x - camPos.x;
+            const abz = focusPos.z - camPos.z;
+            const abLenSq = abx * abx + abz * abz;
+
+            for (let i = 0; i < placedStructures.length; i++) {
+                const s = placedStructures[i];
+                // Zemin taşlarını, yolları ve mobilyaları asla gizleme (böylece evin içi ve mobilyalar net görünür!)
+                if (['foundation', 'wood_deck', 'marble_floor', 'road', 'garden_path', 'bridge'].includes(s.type) || s.type.startsWith('furniture_')) {
+                    continue;
+                }
+
+                const dx = Math.abs(s.pos.x - focusPos.x);
+                const dz = Math.abs(s.pos.z - focusPos.z);
+                if (dx > 34 || dz > 34) continue;
+
+                let shouldFade = false;
+
+                // A) Oyuncu bina içindeyse başının üstündeki çatı ve üst katları saydamlaştır (Evin içi maket gibi açılır!)
+                if (playerInsideBuilding && dx < GRID * 2.6 && dz < GRID * 2.6) {
+                    if (['roof', 'roof_hip', 'ceiling_tile', 'floor_slab', 'pergola'].includes(s.type) && s.pos.y >= focusPos.y - 0.2) {
+                        shouldFade = true;
+                    } else if (s.pos.y > focusPos.y + 0.5) {
+                        shouldFade = true;
+                    }
+                }
+
+                // B) Kamera ile Karakter arasına giren duvar ve binaları saydamlaştır (Yoğun sokaklarda ve oda içinde görüşü açar!)
+                if (!shouldFade && !state.firstPerson && abLenSq > 1.0 && s.pos.y + GRID >= focusPos.y + 0.5) {
+                    const apx = s.pos.x - camPos.x;
+                    const apz = s.pos.z - camPos.z;
+                    const t = (apx * abx + apz * abz) / abLenSq;
+                    // Kamera (t=0) ile Karakter (t=1) arasındaki koridorda kalan tüm yapılar
+                    if (t > 0.08 && t < 0.98) {
+                        const closestX = camPos.x + t * abx;
+                        const closestZ = camPos.z + t * abz;
+                        const distToLine = Math.hypot(s.pos.x - closestX, s.pos.z - closestZ);
+                        if (distToLine < 4.2) {
+                            shouldFade = true;
+                        }
+                    }
+                }
+
+                if (shouldFade) {
+                    newFaded.add(s);
+                    if (!fadedStructuresSet.has(s)) {
+                        setStructureOpacity(s, true);
+                    }
+                }
             }
+
+            // Artık kameranın önünü kapatmayan yapıları normal opak haline döndür
+            fadedStructuresSet.forEach(oldS => {
+                if (!newFaded.has(oldS)) {
+                    setStructureOpacity(oldS, false);
+                }
+            });
+            fadedStructuresSet.clear();
+            newFaded.forEach(s => fadedStructuresSet.add(s));
         }
 
         // ====================================================
@@ -8147,6 +8282,18 @@
                         }
                     }
                 }
+
+                // 4. Eğer eski bulut kaydı yüzünden Süpermarketin (X=156, Z=16) duvarları eksik kalmışsa yeni 2 Katlı Hipermarketi otomatik kur!
+            const hasSupermarketWalls = placedStructures.some(s => Math.abs(s.pos.x - 156) <= 8 && Math.abs(s.pos.z - 16) <= 6 && EDGE_ALIGNED_TYPES.includes(s.type));
+            if (!hasSupermarketWalls) {
+                for (let i = functionalBuildings.length - 1; i >= 0; i--) {
+                    if (functionalBuildings[i].type === 'prefab_supermarket') {
+                        if (functionalBuildings[i].signMesh) scene.remove(functionalBuildings[i].signMesh);
+                        functionalBuildings.splice(i, 1);
+                    }
+                }
+                buildPrefabStructure('prefab_supermarket', 156, 16, true);
+            }
             });
         }
 
