@@ -666,11 +666,19 @@
             { id: 'prefab_bank', name: 'Merkez Bankası', icon: '🏦', price: 1500, category: '5. Hazır Şehir & Köy Binaları', desc: 'Her 15 saniyede +95 TL Faiz/Finans geliri sağlar!' },
             { id: 'prefab_fenced_yard', name: 'Hazır Çitli Bahçe', icon: '🌳', price: 350, category: '5. Hazır Şehir & Köy Binaları', desc: 'Kenarları tam birleşen çit kapılı, kuyulu ve banklı avlu' },
 
-            // 6. Ev İçi Mobilyalar & Otomatik Gelir Üreticiler (Tycoon)
-            { id: 'furniture_bed', name: 'Konforlu Yatak', icon: '🛏️', price: 65, category: '6. Mobilya & Otomasyon', desc: 'Ev içine kurulur, canınızı yeniler ve dekorasyon sağlar' },
-            { id: 'furniture_sofa', name: 'Lüks Koltuk & TV', icon: '🛋️', price: 85, category: '6. Mobilya & Otomasyon', desc: 'Ev ve villalar için televizyon üniteli salon koltuk takımı' },
-            { id: 'crop_field', name: 'Buğday Tarlası', icon: '🌾', price: 180, category: '6. Mobilya & Otomasyon', desc: 'Otomatik çiftlik! Her 15 saniyede +20 TL tarım geliri kazandırır' },
-            { id: 'auto_miner', name: 'Otomatik Maden Kulesi', icon: '⚙️', price: 450, category: '6. Mobilya & Otomasyon', desc: 'Siz gezerken kendi kendine kazı yapar, her 15sn +50 TL kazandırır!' }
+            // 6. Ev İçi Mobilyalar, Elektronik Eşyalar & Otomasyon
+            { id: 'furniture_bed', name: 'Çift Kişilik Yatak', icon: '🛏️', price: 65, category: '6. Mobilya & Elektronik', desc: 'Yastıklı, başlıklı konforlu yatak (+1 Nüfus)' },
+            { id: 'furniture_sofa', name: 'Köşe Koltuk & Dev TV', icon: '🛋️', price: 85, category: '6. Mobilya & Elektronik', desc: 'Modern L koltuk takımı ve dev ekran Smart TV ünitesi' },
+            { id: 'furniture_dining', name: 'Yemek Masası & Sandalye', icon: '🍽️', price: 70, category: '6. Mobilya & Elektronik', desc: 'Ahşap yemek masası ve 4 adet sandalye takımı' },
+            { id: 'furniture_kitchen', name: 'Mutfak Tezgahı & Ocak', icon: '🍳', price: 95, category: '6. Mobilya & Elektronik', desc: 'Evyeli, ankastre fırınlı ve davlumbazlı modern mutfak' },
+            { id: 'furniture_fridge', name: 'Çift Kapılı Buzdolabı', icon: '🧊', price: 80, category: '6. Mobilya & Elektronik', desc: 'Su pınarlı, çelik Inox gardırop tipi buzdolabı' },
+            { id: 'furniture_pc_desk', name: 'Oyuncu Bilgisayarı (PC)', icon: '🖥️', price: 110, category: '6. Mobilya & Elektronik', desc: 'Çift monitörlü, RGB kasalı ve oyuncu koltuklu masa!' },
+            { id: 'furniture_wardrobe', name: 'Aynalı Gardırop & Kitaplık', icon: '🚪', price: 75, category: '6. Mobilya & Elektronik', desc: 'Sürgülü boy aynalı elbise dolabı ve çalışma kitaplığı' },
+            { id: 'furniture_bath', name: 'Banyo Duşakabin & Lavabo', icon: '🚿', price: 90, category: '6. Mobilya & Elektronik', desc: 'Cam duşakabin, aynalı lavabo ve klozet seti' },
+            { id: 'furniture_washer', name: 'Çamaşır & Kurutma Mak.', icon: '🧺', price: 65, category: '6. Mobilya & Elektronik', desc: 'Dijital ekranlı, cam kapaklı çamaşır makinesi' },
+            { id: 'furniture_rug_lamp', name: 'Desenli Halı & Lambader', icon: '🧶', price: 45, category: '6. Mobilya & Elektronik', desc: 'Yumuşak salon halısı ve sıcak ışıklı köşe lambaderi' },
+            { id: 'crop_field', name: 'Buğday Tarlası', icon: '🌾', price: 180, category: '6. Mobilya & Elektronik', desc: 'Otomatik çiftlik! Her 15 saniyede +20 TL tarım geliri kazandırır' },
+            { id: 'auto_miner', name: 'Otomatik Maden Kulesi', icon: '⚙️', price: 450, category: '6. Mobilya & Elektronik', desc: 'Siz gezerken kendi kendine kazı yapar, her 15sn +50 TL kazandırır!' }
         ];
 
         // ====================================================
@@ -3417,27 +3425,40 @@
                 group.userData.lightHalo = winLightHalo;
 
                 group.add(bottomW, topW, sideL, sideR, sill, mullion, glass, winLightHalo);
-            } else if (itemId === 'stairs') {
-                const stepMat = getSharedMaterial('wood', customColorHex || 0x92400e, 0.7);
+            
+                } else if (itemId === 'stairs') {
+                const stepMat = getSharedMaterial('wood', customColorHex || 0x92400e, 0.65);
                 const railMat = getSharedMaterial('wood', 0x78350f, 0.6);
-                for (let i = 0; i < 8; i++) {
-                    const step = new THREE.Mesh(new THREE.BoxGeometry(GRID - 0.2, GRID / 8, GRID / 8 + 0.15), stepMat);
-                    step.position.set(0, (i + 0.5) * (GRID / 8), -GRID / 2 + (i + 0.5) * (GRID / 8));
+                const stringerMat = getSharedMaterial('stone', 0x475569, 0.8);
+
+                // Alt Taşıyıcı Omurga (Merdivenin altının havada kopuk görünmesini engeller)
+                const spine = new THREE.Mesh(new THREE.BoxGeometry(GRID - 0.35, 0.35, Math.hypot(GRID, GRID)), stringerMat);
+                spine.position.set(0, GRID / 2 - 0.15, 0);
+                spine.rotation.x = -Math.PI / 4;
+                group.add(spine);
+
+                // 10 Geniş Basamak (Alt basamak zemine, üst basamak üst kat tavanına tam sıfır oturur!)
+                for (let i = 0; i < 10; i++) {
+                    const step = new THREE.Mesh(new THREE.BoxGeometry(GRID - 0.15, GRID / 10, GRID / 9 + 0.18), stepMat);
+                    step.position.set(0, (i + 0.5) * (GRID / 10), -GRID / 2 + (i + 0.5) * (GRID / 10));
                     group.add(step);
                 }
-                // Merdivenin üst kat tavanı ile birleştiği noktada yürünebilir sahanlık uzantısı!
-                const topLanding = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.28, 1.35), stepMat);
-                topLanding.position.set(0, GRID - 0.14, GRID / 2 + 0.45);
-                group.add(topLanding);
 
-                [-GRID / 2 + 0.2, GRID / 2 - 0.2].forEach(rx => {
-                    const handrail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, Math.hypot(GRID, GRID)), railMat);
+                // Üst Kat Sahanlık Köprüsü (Merdiven bitiminde üst kat tabanıyla %100 birleşir, boşluk bırakmaz!)
+                const topLanding = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.30, 1.8), stepMat);
+                topLanding.position.set(0, GRID - 0.15, GRID / 2 + 0.6);
+                const bottomLanding = new THREE.Mesh(new THREE.BoxGeometry(GRID, 0.26, 0.9), stepMat);
+                bottomLanding.position.set(0, 0.13, -GRID / 2 - 0.25);
+                group.add(topLanding, bottomLanding);
+
+                [-GRID / 2 + 0.18, GRID / 2 - 0.18].forEach(rx => {
+                    const handrail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, Math.hypot(GRID, GRID)), railMat);
                     handrail.position.set(rx, GRID / 2 + 0.95, 0);
                     handrail.rotation.x = -Math.PI / 4;
-                    const postB = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.0, 0.16), railMat);
-                    postB.position.set(rx, 0.6, -GRID / 2 + 0.25);
+                    const postB = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.05, 0.15), railMat);
+                    postB.position.set(rx, 0.6, -GRID / 2 + 0.2);
                     const postT = postB.clone();
-                    postT.position.set(rx, GRID + 0.5, GRID / 2 - 0.25);
+                    postT.position.set(rx, GRID + 0.5, GRID / 2 - 0.2);
                     group.add(handrail, postB, postT);
                 });
             
@@ -3665,10 +3686,159 @@
                 back.position.set(0, 0.75, -1.25);
                 const tvStand = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
                 tvStand.position.set(0, 0.25, 1.2);
+                
                 const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.05, 0.12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
                 tvScreen.position.set(0, 1.05, 1.2);
                 group.add(seat, back, tvStand, tvScreen);
+            } else if (itemId === 'furniture_dining') {
+                // Ahşap Yemek Masası + 4 Sandalye + Masa Üstü Tabaklar
+                const woodMat = getSharedMaterial('wood', customColorHex || 0x92400e, 0.6);
+                const whiteMat = getSharedMaterial(null, 0xf8fafc, 0.3);
+                const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 1.6), woodMat);
+                top.position.y = 0.95;
+                [[-1.0, -0.65], [1.0, -0.65], [-1.0, 0.65], [1.0, 0.65]].forEach(([lx, lz]) => {
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.92, 8), woodMat);
+                    leg.position.set(lx, 0.46, lz);
+                    group.add(leg);
+                });
+                // 4 Sandalye
+                [[0, -1.15, 0], [0, 1.15, Math.PI], [-1.45, 0, Math.PI / 2], [1.45, 0, -Math.PI / 2]].forEach(([cx, cz, rot]) => {
+                    const chair = new THREE.Group();
+                    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.1, 0.58), woodMat);
+                    seat.position.y = 0.52;
+                    const back = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.62, 0.1), woodMat);
+                    back.position.set(0, 0.85, -0.25);
+                    const cLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.5, 6), woodMat);
+                    cLeg.position.y = 0.25;
+                    chair.add(seat, back, cLeg);
+                    chair.position.set(cx, 0, cz);
+                    chair.rotation.y = rot;
+                    group.add(chair);
+                });
+                const plate1 = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.05, 12), whiteMat);
+                plate1.position.set(-0.5, 1.05, 0);
+                const plate2 = plate1.clone();
+                plate2.position.set(0.5, 1.05, 0);
+                group.add(top, plate1, plate2);
+            } else if (itemId === 'furniture_kitchen') {
+                // Modern Mutfak Tezgahı + Ankastre Ocak + Evye + Davlumbaz
+                const cabMat = getSharedMaterial(null, customColorHex || 0xf8fafc, 0.4);
+                const counterMat = getSharedMaterial('stone', 0x1e293b, 0.3, 0.2);
+                const chromeMat = getSharedMaterial(null, 0xe2e8f0, 0.2, 0.85);
+                const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.0, 1.1), cabMat);
+                base.position.set(0, 0.5, -1.1);
+                const top = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.12, 1.2), counterMat);
+                top.position.set(0, 1.05, -1.1);
+                const oven = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.72, 0.08), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+                oven.position.set(-0.7, 0.48, -0.52);
+                // 4 Ocak Gözü
+                [[-0.9, -0.9], [-0.5, -0.9], [-0.9, -1.25], [-0.5, -1.25]].forEach(([bx, bz]) => {
+                    const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 12), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                    burner.position.set(bx, 1.13, bz);
+                    group.add(burner);
+                });
+                const sink = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.06, 0.65), chromeMat);
+                sink.position.set(0.85, 1.12, -1.1);
+                const hood = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.45, 0.8), chromeMat);
+                hood.position.set(-0.7, 2.35, -1.1);
+                group.add(base, top, oven, sink, hood);
+            } else if (itemId === 'furniture_fridge') {
+                // Çift Kapılı Çelik Inox Buzdolabı & Su Pınarı
+                const inoxMat = getSharedMaterial(null, customColorHex || 0xcbd5e1, 0.25, 0.75);
+                const darkMat = getSharedMaterial(null, 0x0f172a, 0.4);
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.45, 2.35, 1.05), inoxMat);
+                body.position.set(0, 1.18, -1.1);
+                const gap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.25, 1.08), darkMat);
+                gap.position.set(0, 1.18, -1.1);
+                const dispenser = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.08), darkMat);
+                dispenser.position.set(-0.38, 1.45, -0.55);
+                group.add(body, gap, dispenser);
+            } else if (itemId === 'furniture_pc_desk') {
+                // RGB Oyuncu Bilgisayarı (Çift Monitör + RGB Kasa + Oyuncu Koltuğu)
+                const deskMat = getSharedMaterial(null, 0x1e293b, 0.5);
+                const neonMat = new THREE.MeshBasicMaterial({ color: 0xec4899 });
+                const screenMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+                const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, 1.1), deskMat);
+                top.position.set(0, 0.92, -0.9);
+                const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(2.52, 0.06, 1.12), neonMat);
+                ledStrip.position.set(0, 0.90, -0.9);
+                const legL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.9, 1.0), deskMat);
+                legL.position.set(-1.1, 0.45, -0.9);
+                const legR = legL.clone();
+                legR.position.x = 1.1;
+                // Çift Monitör + RGB Kasa
+                const mon1 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.58, 0.08), screenMat);
+                mon1.position.set(-0.45, 1.35, -1.15);
+                mon1.rotation.y = 0.15;
+                const mon2 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.58, 0.08), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+                mon2.position.set(0.52, 1.35, -1.15);
+                mon2.rotation.y = -0.15;
+                const pcCase = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.65, 0.65), deskMat);
+                pcCase.position.set(1.02, 1.30, -0.9);
+                const pcRgb = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.55, 0.12), neonMat);
+                pcRgb.position.set(1.02, 1.30, -0.58);
+                // Oyuncu Koltuğu
+                const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.7), getSharedMaterial(null, 0xef4444, 0.5));
+                chairSeat.position.set(0, 0.55, 0.1);
+                const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.68, 1.05, 0.14), getSharedMaterial(null, 0xef4444, 0.5));
+                chairBack.position.set(0, 1.1, 0.42);
+                group.add(top, ledStrip, legL, legR, mon1, mon2, pcCase, pcRgb, chairSeat, chairBack);
+            } else if (itemId === 'furniture_wardrobe') {
+                // Boy Aynalı Gardırop & Renkli Kitaplık
+                const woodMat = getSharedMaterial('wood', customColorHex || 0x78350f, 0.65);
+                const mirrorMat = new THREE.MeshPhysicalMaterial({ color: 0xe0f2fe, metalness: 0.85, roughness: 0.08 });
+                const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.45, 0.9), woodMat);
+                body.position.set(0, 1.225, -1.2);
+                const mirror = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.05), mirrorMat);
+                mirror.position.set(-0.6, 1.225, -0.73);
+                // Kitaplık Rafları
+                for (let sy = 0.5; sy <= 2.0; sy += 0.5) {
+                    const books = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.32, 0.12), getSharedMaterial(null, sy > 1.2 ? 0x3b82f6 : 0xfacc15, 0.5));
+                    books.position.set(0.65, sy, -0.74);
+                    group.add(books);
+                }
+                group.add(body, mirror);
+            } else if (itemId === 'furniture_bath') {
+                // Cam Duşakabin + Aynalı Lavabo + Klozet
+                const whiteMat = getSharedMaterial(null, 0xffffff, 0.25);
+                const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45, roughness: 0.1 });
+                const showerTray = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.18, 1.3), whiteMat);
+                showerTray.position.set(-0.9, 0.09, -0.9);
+                const showerGlass = new THREE.Mesh(new THREE.BoxGeometry(1.26, 2.2, 1.26), glassMat);
+                showerGlass.position.set(-0.9, 1.2, -0.9);
+                const vanity = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 0.65), whiteMat);
+                vanity.position.set(0.7, 0.425, -1.2);
+                const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.06), new THREE.MeshBasicMaterial({ color: 0xbae6fd }));
+                mirror.position.set(0.7, 1.5, -1.48);
+                group.add(showerTray, showerGlass, vanity, mirror);
+            } else if (itemId === 'furniture_washer') {
+                // Dijital Çamaşır Makinesi
+                const whiteMat = getSharedMaterial(null, customColorHex || 0xf8fafc, 0.3);
+                const darkMat = getSharedMaterial(null, 0x0f172a, 0.3);
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.95), whiteMat);
+                body.position.set(0, 0.625, -1.1);
+                const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.12, 16), darkMat);
+                drum.rotation.x = Math.PI / 2;
+                drum.position.set(0, 0.58, -0.62);
+                const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                glass.rotation.x = Math.PI / 2;
+                glass.position.set(0, 0.58, -0.62);
+                group.add(body, drum, glass);
+            } else if (itemId === 'furniture_rug_lamp') {
+                // Desenli Salon Halısı + Sıcak Işıklı Köşe Lambaderi
+                const rugMat = getSharedMaterial(null, customColorHex || 0xb91c1c, 0.9);
+                const goldMat = getSharedMaterial(null, 0xfacc15, 0.7);
+                const rug = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 2.4), rugMat);
+                rug.position.y = 0.04;
+                const innerRug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.07, 1.8), goldMat);
+                innerRug.position.y = 0.045;
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 2.1, 8), goldMat);
+                pole.position.set(1.4, 1.05, -1.1);
+                const shade = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.55, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide }));
+                shade.position.set(1.4, 2.1, -1.1);
+                group.add(rug, innerRug, pole, shade);
             } else if (itemId === 'crop_field') {
+                
                 const soil = new THREE.Mesh(new THREE.BoxGeometry(GRID - 0.2, 0.2, GRID - 0.2), new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.95 }));
                 soil.position.y = 0.1;
                 group.add(soil);
@@ -4116,11 +4286,12 @@
             } else if (prefabId === 'prefab_apartment') {
                 for (let floor = 0; floor < 3; floor++) {
                     const fy = baseY + floor * GRID;
+                    const stairDx = (floor % 2 === 0) ? 2 : -1; // Kat 0'da sağda (dx=2), Kat 1'de solda (dx=-1) -> Üst üste binmez!
                     const wallCol = floor === 0 ? 0x334155 : (floor === 1 ? 0xf8fafc : 0xe2e8f0);
                     for (let dx = -1; dx <= 2; dx++) {
                         for (let dz = -1; dz <= 1; dz++) {
                             if (floor === 0) placeSingleBlock('foundation', cx + dx * GRID, fy, cz + dz * GRID, 0, 0x64748b);
-                            if (!(dx === 2 && dz === -1 && floor < 2)) {
+                            if (!(dx === stairDx && dz === -1 && floor < 2)) {
                                 placeSingleBlock('ceiling_tile', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xe2e8f0);
                             }
                             if (floor === 2) {
@@ -4130,7 +4301,7 @@
                     }
                     buildRoomPerimeter(cx, cz, fy, -1, 2, -1, 1, 'concrete_wall', wallCol, floor === 0 ? 0 : 99, 1);
                     if (floor < 2) {
-                        placeSingleBlock('stairs', cx + 2 * GRID, fy, cz - GRID, 0, 0x64748b);
+                        placeSingleBlock('stairs', cx + stairDx * GRID, fy, cz - GRID, 0, 0x64748b);
                     }
                 }
                 if (!silent) showToast('🏢 3 Katlı Apartman kuruldu! (+8 Nüfus ve +65 TL/15sn Kira Geliri)', 'text-emerald-300');
@@ -4154,11 +4325,12 @@
             } else if (prefabId === 'prefab_apartment_v2') {
                 for (let floor = 0; floor < 4; floor++) {
                     const fy = baseY + floor * GRID;
+                    const stairDx = (floor % 2 === 0) ? 2 : -2; // Çift katlarda sağda (dx=2), tek katlarda solda (dx=-2)
                     const wallCol = floor % 2 === 0 ? 0x0284c7 : 0xf8fafc;
                     for (let dx = -2; dx <= 2; dx++) {
                         for (let dz = -1; dz <= 1; dz++) {
                             if (floor === 0) placeSingleBlock('marble_floor', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xf8fafc);
-                            if (!(dx === 2 && dz === -1 && floor < 3)) {
+                            if (!(dx === stairDx && dz === -1 && floor < 3)) {
                                 placeSingleBlock('ceiling_tile', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xf8fafc);
                             }
                             if (floor === 3) {
@@ -4167,7 +4339,7 @@
                         }
                     }
                     buildRoomPerimeter(cx, cz, fy, -2, 2, -1, 1, 'window', wallCol, floor === 0 ? 0 : 99, 1);
-                    if (floor < 3) placeSingleBlock('stairs', cx + 2 * GRID, fy, cz - GRID, 0, 0x0284c7);
+                    if (floor < 3) placeSingleBlock('stairs', cx + stairDx * GRID, fy, cz - GRID, 0, 0x0284c7);
                 }
                 spawnCitizen(cx, cz + 10);
                 if (!silent) showToast('🏬 4 Katlı Modern Rezidans (V2) kuruldu! (+12 Nüfus ve +95 TL/15sn Kira Geliri)', 'text-sky-300');
@@ -4175,11 +4347,12 @@
             } else if (prefabId === 'prefab_apartment_v3') {
                 for (let floor = 0; floor < 5; floor++) {
                     const fy = baseY + floor * GRID;
+                    const stairDx = (floor % 2 === 0) ? 2 : -1; // Çift katlarda sağda (dx=2), tek katlarda solda (dx=-1)
                     const wallCol = floor === 0 ? 0xd97706 : (floor % 2 === 0 ? 0x1e293b : 0xfde68a);
                     for (let dx = -1; dx <= 2; dx++) {
                         for (let dz = -1; dz <= 1; dz++) {
                             if (floor === 0) placeSingleBlock('marble_floor', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xfef08a);
-                            if (!(dx === 2 && dz === -1 && floor < 4)) {
+                            if (!(dx === stairDx && dz === -1 && floor < 4)) {
                                 placeSingleBlock('ceiling_tile', cx + dx * GRID, fy, cz + dz * GRID, 0, 0xf8fafc);
                             }
                             if (floor === 4) {
@@ -4188,13 +4361,14 @@
                         }
                     }
                     buildRoomPerimeter(cx, cz, fy, -1, 2, -1, 1, floor === 0 ? 'concrete_wall' : 'window', wallCol, floor === 0 ? 0 : 99, 1);
-                    if (floor < 4) placeSingleBlock('stairs', cx + 2 * GRID, fy, cz - GRID, 0, 0xd97706);
+                    if (floor < 4) placeSingleBlock('stairs', cx + stairDx * GRID, fy, cz - GRID, 0, 0xd97706);
                 }
                 spawnCitizen(cx - 3, cz + 10);
                 spawnCitizen(cx + 3, cz + 10);
                 if (!silent) showToast('🏙️ 5 Katlı Gökdelen Kule (V3) kuruldu! (+16 Nüfus ve +135 TL/15sn Kira Geliri)', 'text-amber-300');
 
             } else if (prefabId === 'prefab_school_v2') {
+
                 for (let floor = 0; floor < 2; floor++) {
                     const fy = baseY + floor * GRID;
                     for (let dx = -2; dx <= 2; dx++) {
@@ -6101,23 +6275,33 @@
                 updateHUD();
             }
 
-            // Update Ghost Preview with Real 3D Transparent Model, Smart Elevation Lock & Auto-Roof/Wall Snapping
+            // Update Ghost Preview with Real 3D Transparent Model (Bina İçi ve Üst Kat Mobilya Desteği!)
             updateGhostPreviewModel();
             ghostMesh.visible = !state.inVehicle && !state.deleteMode && state.hotbar[state.selectedSlot] !== 'axe_pick';
             if (ghostMesh.visible) {
-                if (state.touchAimFront) {
-                    const frontX = player.pos.x + Math.sin(player.angle) * (GRID * 1.4);
-                    const frontZ = player.pos.z + Math.cos(player.angle) * (GRID * 1.4);
-                    state.mouseWorld.set(frontX, 0, frontZ);
-                }
-                const snapX = Math.round(state.mouseWorld.x / GRID) * GRID;
-                const snapZ = Math.round(state.mouseWorld.z / GRID) * GRID;
                 const activeItem = state.hotbar[state.selectedSlot];
+                const isFurniture = activeItem.startsWith('furniture_') || activeItem === 'bench';
+
+                if (state.touchAimFront || state.firstPerson) {
+                    const aimAngle = state.firstPerson ? state.cameraAngle : player.angle;
+                    const aimDist = isFurniture ? 3.4 : (GRID * 1.35);
+                    const frontX = player.pos.x + Math.sin(aimAngle) * aimDist;
+                    const frontZ = player.pos.z + Math.cos(aimAngle) * aimDist;
+                    state.mouseWorld.set(frontX, player.pos.y, frontZ);
+                }
+
+                // Mobilyalar bina içinde yarım kare (2m) hassasiyetle her odaya rahatça sığar!
+                const snapStep = isFurniture ? (GRID / 2) : GRID;
+                const snapX = Math.round(state.mouseWorld.x / snapStep) * snapStep;
+                const snapZ = Math.round(state.mouseWorld.z / snapStep) * snapStep;
 
                 let baseGround = Math.max(0, getNaturalTerrainHeight(snapX, snapZ));
 
-                // If Auto-Level Lock is enabled, snap to nearby foundation/wall level so hills don't stagger blocks
-                if (state.autoLevelLock && activeItem !== 'terraform_flat') {
+                // Eğer oyuncu üst kattaysa veya bina içindeyse, yapı/mobilya doğrudan oyuncunun bulunduğu kata (story) hizalanır!
+                const playerStoryY = Math.round(player.pos.y / GRID) * GRID;
+                if (isFurniture || state.firstPerson || playerStoryY > baseGround + 0.5) {
+                    baseGround = isFurniture ? getSurfaceHeight(snapX, snapZ, player.pos.y) : playerStoryY;
+                } else if (state.autoLevelLock && activeItem !== 'terraform_flat') {
                     let nearbyBase = null;
                     for (let i = placedStructures.length - 1; i >= 0; i--) {
                         const st = placedStructures[i];
@@ -6135,7 +6319,6 @@
                     }
                 }
 
-                // Smart Vertical Stacking: Roofs and Pergolas automatically sit on top of walls
                 let autoStackOffset = 0;
                 if (activeItem === 'roof' || activeItem === 'pergola') {
                     const wallBelow = placedStructures.find(st =>
@@ -7904,6 +8087,69 @@
             playSfx('spawn');
         }
 
+        // Eski bulut/cihaz kayıtlarındaki eksik merdiven sahanlıklarını ve üst üste binmiş merdivenleri otomatik onaran fonksiyon
+        function autoRepairLegacyStairs() {
+            const stairsList = placedStructures.filter(s => s.type === 'stairs');
+            stairsList.forEach(st => {
+                // 1. Eğer merdiven eski kayıttan kalma dz=0 konumundaysa ve önünde (dz=1) tavan yoksa, merdiveni dz=-1'e çek ve dz=0 ile dz=1'e tavan sahanlığı döşe!
+                const frontZ = st.pos.z + GRID;
+                const hasWallRightInFront = placedStructures.some(w =>
+                    EDGE_ALIGNED_TYPES.includes(w.type) &&
+                    Math.abs(w.pos.x - st.pos.x) < 0.5 &&
+                    Math.abs(w.pos.z - st.pos.z) < 0.5 &&
+                    Math.abs(w.pos.y - st.pos.y) < 0.5 &&
+                    w.rotation === 0
+                );
+                if (hasWallRightInFront) {
+                    // Eski dz=0 merdivenini dz=-1'e kaydır
+                    st.pos.z -= GRID;
+                    st.mesh.position.z = st.pos.z;
+                }
+
+                // 2. Merdivenin çıktığı karede (st.pos.z + GRID) ve (st.pos.z + 2*GRID) yürünebilir tavan/sahanlık yoksa otomatik ekle!
+                [st.pos.z + GRID, st.pos.z + GRID * 2].forEach(checkZ => {
+                    const insideBuilding = placedStructures.some(w =>
+                        Math.abs(w.pos.x - st.pos.x) < 0.5 &&
+                        Math.abs(w.pos.z - checkZ) < 0.5
+                    );
+                    const hasCeiling = placedStructures.some(c =>
+                        (c.type === 'ceiling_tile' || c.type === 'floor_slab') &&
+                        Math.abs(c.pos.x - st.pos.x) < 0.5 &&
+                        Math.abs(c.pos.z - checkZ) < 0.5 &&
+                        Math.abs(c.pos.y - st.pos.y) < 0.5
+                    );
+                    if (insideBuilding && !hasCeiling) {
+                        placeSingleBlock('ceiling_tile', st.pos.x, st.pos.y, checkZ, 0, 0xf8fafc, false, true, st.prefabGroupId, st.prefabType);
+                    }
+                });
+
+                // 3. Eğer bir üst kattaki merdiven (st.pos.y + GRID) tam bu merdivenin üstündeyse (üst üste binmişse), üstteki merdiveni yan koridora kaydır!
+                const overlappingUpperStair = placedStructures.find(up =>
+                    up.type === 'stairs' &&
+                    Math.abs(up.pos.x - st.pos.x) < 0.5 &&
+                    Math.abs(up.pos.z - st.pos.z) < 0.5 &&
+                    Math.abs(up.pos.y - (st.pos.y + GRID)) < 0.5
+                );
+                if (overlappingUpperStair) {
+                    // Üst merdivenin çıktığı eski yerdeki boşluğu kapat, merdiveni sol koridora (-3*GRID) taşı ve yeni yerin üstünü aç
+                    placeSingleBlock('ceiling_tile', overlappingUpperStair.pos.x, overlappingUpperStair.pos.y, overlappingUpperStair.pos.z, 0, 0xf8fafc, false, true, overlappingUpperStair.prefabGroupId, overlappingUpperStair.prefabType);
+                    overlappingUpperStair.pos.x -= GRID * 3;
+                    overlappingUpperStair.mesh.position.x = overlappingUpperStair.pos.x;
+                    // Yeni taşındığı karenin tavanını aç ki üst kata çıkılabilsin
+                    for (let i = placedStructures.length - 1; i >= 0; i--) {
+                        const c = placedStructures[i];
+                        if (c.type === 'ceiling_tile' &&
+                            Math.abs(c.pos.x - overlappingUpperStair.pos.x) < 0.5 &&
+                            Math.abs(c.pos.z - overlappingUpperStair.pos.z) < 0.5 &&
+                            Math.abs(c.pos.y - overlappingUpperStair.pos.y) < 0.5) {
+                            scene.remove(c.mesh);
+                            placedStructures.splice(i, 1);
+                        }
+                    }
+                }
+            });
+        }
+
         window.onload = function () {
             if (!localStorage.getItem('cw_nick')) {
                 myNickname = 'Kral_Uras';
@@ -7917,6 +8163,9 @@
             buildUrasFounderMonument();
             isGeneratingStarterWorld = false;
             initFirebaseMultiplayer();
+            // Hem başlangıçta hem de buluttan/cihazdan veri yüklendikten 2 saniye sonra eski merdivenleri otomatik onar!
+            autoRepairLegacyStairs();
+            setTimeout(autoRepairLegacyStairs, 2200);
             animate();
         };
 
